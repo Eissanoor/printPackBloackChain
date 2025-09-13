@@ -41,7 +41,7 @@ When a product owner approves a sync request from another user, the approval is 
    CONTRACT_ADDRESS=your-deployed-contract-address
    
    # Database Configuration
-   DATABASE_URL="sqlserver://173.249.56.16:1433;database=PRINT_PACK_DB;user=sa;password=itsVE!;encrypt=true;trustServerCertificate=true;connectTimeout=30000;"
+   DATABASE_URL="DATABASE_URL"
    
    # Blockchain Settings
    BLOCKCHAIN_ENABLED=true
