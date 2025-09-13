@@ -61,7 +61,9 @@ async function deployContract() {
   try {
     // Connect to the blockchain
     const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545';
-    const web3 = new Web3(rpcUrl);
+    
+    // Initialize Web3 with provider
+    const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
     
     // Get the private key from environment
     const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
@@ -69,17 +71,21 @@ async function deployContract() {
       throw new Error('Private key not found in environment variables');
     }
     
-    // Add the private key to the wallet
-    const account = web3.eth.accounts.privateKeyToAccount('0x' + privateKey);
+    // Add the private key to the wallet (ensure it has 0x prefix)
+    const privateKeyWithPrefix = privateKey.startsWith('0x') ? privateKey : '0x' + privateKey;
+    const account = web3.eth.accounts.privateKeyToAccount(privateKeyWithPrefix);
     web3.eth.accounts.wallet.add(account);
     
     console.log(`Using account: ${account.address}`);
     
     // Check account balance
     const balance = await web3.eth.getBalance(account.address);
-    console.log(`Account balance: ${web3.utils.fromWei(balance, 'ether')} ETH`);
+    // Convert Wei to ETH
+    const balanceInEth = Number(balance) / 1e18;
+    console.log(`Account balance: ${balanceInEth} ETH`);
     
-    if (web3.utils.toBN(balance).isZero()) {
+    // Check if balance is zero (in Web3.js v4, we can compare directly)
+    if (balance === '0' || balance === 0 || balance === '0x0') {
       throw new Error('Account has no ETH. Please fund your account before deploying.');
     }
     
@@ -97,23 +103,40 @@ async function deployContract() {
     // Create contract instance
     const contract = new web3.eth.Contract(abi);
     
-    // Estimate gas
-    const gasEstimate = await contract.deploy({
-      data: '0x' + bytecode
-    }).estimateGas({ from: account.address });
+    // Prepare the contract deployment data
+    const deployData = contract.deploy({
+      data: bytecode.startsWith('0x') ? bytecode : '0x' + bytecode
+    });
     
-    console.log(`Estimated gas: ${gasEstimate}`);
+    // Get gas price
+    const gasPrice = await web3.eth.getGasPrice();
+    console.log(`Current gas price: ${gasPrice.toString()} wei`);
+    
+    // Estimate gas
+    console.log('Estimating gas...');
+    let gasEstimate;
+    try {
+      gasEstimate = await deployData.estimateGas({ from: account.address });
+      console.log(`Estimated gas: ${gasEstimate}`);
+    } catch (error) {
+      console.warn('Gas estimation failed, using default:', error.message);
+      gasEstimate = 3000000; // Default gas limit
+      console.log(`Using default gas: ${gasEstimate}`);
+    }
     
     // Deploy the contract
     console.log('Deploying contract...');
-    const deployTx = contract.deploy({
-      data: '0x' + bytecode
-    });
     
-    const deployedContract = await deployTx.send({
+    // Add 20% buffer to gas estimate
+    // Convert to number first to avoid BigInt mixing issues
+    const gasEstimateNum = Number(gasEstimate);
+    const gasLimit = Math.floor(gasEstimateNum * 1.2);
+    
+    // Create and send the deployment transaction
+    const deployedContract = await deployData.send({
       from: account.address,
-      gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
-      gasPrice: await web3.eth.getGasPrice()
+      gas: gasLimit,
+      gasPrice: gasPrice
     });
     
     console.log(`Contract deployed at: ${deployedContract.options.address}`);
