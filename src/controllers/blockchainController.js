@@ -6,7 +6,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Create blockchain service instance
-const blockchainService = new Web3BlockchainService();
+let blockchainService;
+
+try {
+    blockchainService = new Web3BlockchainService();
+    console.log('Blockchain service initialized successfully');
+} catch (error) {
+    console.error('Failed to initialize blockchain service:', error);
+    // We'll create the service instance on-demand in the functions below
+}
 
 /**
  * Record a sync approval on the blockchain
@@ -36,6 +44,12 @@ export const recordSyncApprovalOnBlockchain = async (syncRequest, action) => {
             };
         }
         
+        // Initialize blockchain service if not already done
+        if (!blockchainService) {
+            console.log('Initializing blockchain service on-demand');
+            blockchainService = new Web3BlockchainService();
+        }
+        
         // Generate a unique approval ID
         const timestamp = Date.now();
         const approvalId = generateApprovalId(
@@ -55,10 +69,16 @@ export const recordSyncApprovalOnBlockchain = async (syncRequest, action) => {
             licenceKey: syncRequest.licence_key || ''
         };
         
+        console.log('Sending REAL blockchain transaction for approval:', approvalData);
+        
         // Record on blockchain
         const result = await blockchainService.recordSyncApproval(approvalData);
         
         if (result.success) {
+            console.log('REAL blockchain transaction successful!');
+            console.log('Transaction hash:', result.transactionHash);
+            console.log('Block number:', result.blockNumber);
+            
             return {
                 success: true,
                 recorded: true,
@@ -70,11 +90,12 @@ export const recordSyncApprovalOnBlockchain = async (syncRequest, action) => {
                 }
             };
         } else {
-            console.error('Failed to record on blockchain:', result.error);
+            console.error('Failed to record on REAL blockchain:', result.error);
             return {
                 success: false,
                 recorded: false,
-                error: result.error
+                error: result.error,
+                details: result.details || {}
             };
         }
     } catch (error) {
@@ -104,8 +125,27 @@ export const getBlockchainApproval = async (approvalId) => {
             };
         }
         
+        // Initialize blockchain service if not already done
+        if (!blockchainService) {
+            console.log('Initializing blockchain service on-demand');
+            blockchainService = new Web3BlockchainService();
+        }
+        
+        console.log('Getting REAL blockchain approval data for:', approvalId);
+        
         const result = await blockchainService.getApproval(approvalId);
-        return result;
+        
+        if (result.success) {
+            console.log('REAL blockchain data retrieved successfully!');
+            return result;
+        } else {
+            console.error('Failed to get approval from REAL blockchain:', result.error);
+            return {
+                success: false,
+                error: result.error,
+                details: result.details || {}
+            };
+        }
     } catch (error) {
         console.error('Get blockchain approval error:', error);
         return {

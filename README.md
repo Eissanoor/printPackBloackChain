@@ -37,7 +37,7 @@ When a product owner approves a sync request from another user, the approval is 
    ```
    # Blockchain Configuration
    BLOCKCHAIN_RPC_URL=http://localhost:8545
-   BLOCKCHAIN_PRIVATE_KEY=your-private-key-without-0x-prefix
+   BLOCKCHAIN_PRIVATE_KEY=your-private-key-with-or-without-0x-prefix
    CONTRACT_ADDRESS=your-deployed-contract-address
    
    # Database Configuration
@@ -45,7 +45,15 @@ When a product owner approves a sync request from another user, the approval is 
    
    # Blockchain Settings
    BLOCKCHAIN_ENABLED=true
+   
+   # Mock Fallback Settings (optional)
+   ALLOW_MOCK_FALLBACK=false
    ```
+   
+   > **IMPORTANT**: The private key must be a valid 64-character hexadecimal string (with or without the '0x' prefix). You can validate your private key by running:
+   > ```
+   > node scripts/validate-private-key.js YOUR_PRIVATE_KEY
+   > ```
 
 ## Local Development
 
@@ -53,12 +61,13 @@ The project includes a mock implementation of the blockchain service for develop
 
 ### Using the Mock Implementation
 
-1. Set up your `.env` file with any values (they will be displayed but not actually used):
+1. Set up your `.env` file with mock mode enabled:
    ```
    BLOCKCHAIN_RPC_URL=http://localhost:8545
    BLOCKCHAIN_PRIVATE_KEY=your-private-key
    CONTRACT_ADDRESS=your-contract-address
    BLOCKCHAIN_ENABLED=true
+   USE_MOCK_MODE=true
    ```
 
 2. Start the API server:
@@ -70,6 +79,19 @@ The mock implementation will:
 - Log all blockchain operations to the console
 - Generate mock transaction hashes
 - Return mock data for blockchain queries
+- Work without requiring any real ETH in your account
+
+### Getting Test ETH for Real Blockchain Testing
+
+If you want to use a real blockchain (like Sepolia testnet) instead of mock mode, you'll need test ETH to pay for gas fees:
+
+1. Run the helper script to check your account and get instructions:
+   ```
+   node scripts/get-test-eth.js
+   ```
+
+2. Follow the instructions to get test ETH from a faucet
+3. Once your account has ETH, you can use the real blockchain without mock mode
 
 ### Using Ganache (Optional)
 

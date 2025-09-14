@@ -54,3 +54,6 @@ src/abis/
 # Temporary files
 tmp/
 temp/
+
+# Ganache accounts
+ganache-accounts.json/

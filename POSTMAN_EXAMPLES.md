@@ -81,7 +81,56 @@ X-API-Key: {{api_key}}
 }
 ```
 
-### 3. Get Approval Details from Blockchain
+### 3. Get All Approvals from Blockchain
+
+**Request:**
+```
+GET {{base_url}}/api/blockchain/all-approvals
+```
+
+**Headers:**
+```
+X-API-Key: {{api_key}}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Blockchain approvals retrieved successfully",
+  "data": {
+    "total_approvals": 2,
+    "approvals": [
+      {
+        "approval_id": "480e24ac73d48cd107ea16cd14798b89",
+        "requestId": "test-request-id",
+        "requesterId": "test-requester-id",
+        "ownerId": "test-owner-id",
+        "requestType": "gcp",
+        "licenceKey": "test-licence-key",
+        "timestamp": 1694563200,
+        "isActive": true,
+        "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "blockNumber": 12345678
+      },
+      {
+        "approval_id": "7f8e9d6c5b4a3210fedcba9876543210",
+        "requestId": "test-request-id-2",
+        "requesterId": "test-requester-id-2",
+        "ownerId": "test-owner-id-2",
+        "requestType": "excel",
+        "licenceKey": "test-licence-key-2",
+        "timestamp": 1694563100,
+        "isActive": false,
+        "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "blockNumber": 12345600
+      }
+    ]
+  }
+}
+```
+
+### 4. Get Approval Details from Blockchain
 
 **Request:**
 ```
@@ -105,7 +154,9 @@ X-API-Key: {{api_key}}
     "requestType": "gcp",
     "licenceKey": "GS1-12345-ABC",
     "timestamp": 1694563200,
-    "isActive": true
+    "isActive": true,
+    "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "blockNumber": 12345678
   }
 }
 ```
@@ -147,11 +198,21 @@ Authorization: Bearer {{auth_token}}
     "licence_key": "GS1-12345-ABC",
     "access_granted": true,
     "next_steps": "Requester can now use GCP to sync product data",
-    "blockchain": {
-      "recorded": true,
-      "transaction_ref": "GCP_1694563200000_1234",
-      "transaction_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    }
+      "blockchain": {
+        "recorded": true,
+        "transaction_ref": "GCP_1694563200000_1234",
+        "transaction_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "contract_data": {
+          "requestId": "clm3x7z9p000008l4g5tf1jq2",
+          "requesterId": "clm3x7z9p000008l4g5tf1jq3",
+          "ownerId": "clm3x7z9p000008l4g5tf1jq4",
+          "requestType": "gcp",
+          "licenceKey": "GS1-12345-ABC",
+          "timestamp": 1694563200,
+          "isActive": true,
+          "blockNumber": 12345678
+        }
+      }
   }
 }
 ```
@@ -197,12 +258,12 @@ Authorization: Bearer {{auth_token}}
 
 **Request:**
 ```
-GET {{base_url}}/api/requests/getSyncRequests?status=pending&request_type=gcp&page=1&limit=10&association=true
+GET {{base_url}}/api/requests/getSyncRequests?status=pending&request_type=gcp&page=1&limit=10&include_blockchain=true
 ```
 
 **Headers:**
 ```
-Authorization: Bearer {{auth_token}}
+X-API-Key: {{api_key}}
 ```
 
 **Response:**
@@ -216,11 +277,26 @@ Authorization: Bearer {{auth_token}}
       "owner_id": "clm3x7z9p000008l4g5tf1jq4",
       "owner_email": "owner@example.com",
       "request_type": "gcp",
-      "status": "pending",
+      "status": "approved",
       "licence_key": "GS1-12345-ABC",
       "message": "Please approve my request to access your product data",
       "created_at": "2023-09-12T10:00:00.000Z",
       "updated_at": "2023-09-12T10:00:00.000Z",
+      "blockchain_data": {
+        "recorded": true,
+        "approval_id": "7f8e9d6c5b4a3210fedcba9876543210",
+        "contract_data": {
+          "requestId": "clm3x7z9p000008l4g5tf1jq2",
+          "requesterId": "clm3x7z9p000008l4g5tf1jq3",
+          "ownerId": "clm3x7z9p000008l4g5tf1jq4",
+          "requestType": "gcp",
+          "licenceKey": "GS1-12345-ABC",
+          "timestamp": 1694563200,
+          "isActive": true,
+          "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+          "blockNumber": 12345678
+        }
+      },
       "requester": {
         "id": "clm3x7z9p000008l4g5tf1jq3",
         "firstname": "John",
@@ -229,6 +305,40 @@ Authorization: Bearer {{auth_token}}
         "company_name_eng": "ABC Company",
         "company_name_arabic": null,
         "mobile": "+1234567890"
+      },
+      "owner": {
+        "id": "clm3x7z9p000008l4g5tf1jq4",
+        "firstname": "Jane",
+        "lastname": "Smith",
+        "email": "jane.smith@example.com",
+        "company_name_eng": "XYZ Corporation",
+        "company_name_arabic": null,
+        "mobile": "+9876543210"
+      }
+    },
+    {
+      "id": "clm3x7z9p000008l4g5tf1jq3",
+      "requester_id": "clm3x7z9p000008l4g5tf1jq5",
+      "owner_id": "clm3x7z9p000008l4g5tf1jq4",
+      "owner_email": "owner@example.com",
+      "request_type": "gcp",
+      "status": "pending",
+      "licence_key": "GS1-54321-XYZ",
+      "message": "Requesting access to your product data",
+      "created_at": "2023-09-15T14:30:00.000Z",
+      "updated_at": "2023-09-15T14:30:00.000Z",
+      "blockchain_data": {
+        "recorded": false,
+        "message": "Only approved requests have blockchain records"
+      },
+      "requester": {
+        "id": "clm3x7z9p000008l4g5tf1jq5",
+        "firstname": "Alice",
+        "lastname": "Johnson",
+        "email": "alice.johnson@example.com",
+        "company_name_eng": "Johnson Inc",
+        "company_name_arabic": null,
+        "mobile": "+1122334455"
       },
       "owner": {
         "id": "clm3x7z9p000008l4g5tf1jq4",
@@ -250,7 +360,7 @@ Authorization: Bearer {{auth_token}}
     "hasPrevPage": false
   },
   "meta": {
-    "associations_loaded": true
+    "blockchain_data_included": true
   }
 }
 ```

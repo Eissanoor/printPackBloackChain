@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import blockchainRoutes from './routes/blockchainRoutes.js';
+import requestRoutes from './routes/requestRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +28,7 @@ app.set('blockchainConfig', {
 
 // Routes
 app.use('/api/blockchain', blockchainRoutes);
+app.use('/api/requests', requestRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -35,7 +37,8 @@ app.get('/', (req, res) => {
     message: 'Print & Pack Blockchain Integration API',
     version: '1.0.0',
     endpoints: {
-      blockchain: '/api/blockchain'
+      blockchain: '/api/blockchain',
+      requests: '/api/requests'
     }
   });
 });
@@ -66,7 +69,10 @@ app.listen(PORT, () => {
   console.log('API Endpoints:');
   console.log('- POST /api/blockchain/record-approval - Record a sync approval');
   console.log('- GET /api/blockchain/approval/:approvalId - Get approval details');
+  console.log('- GET /api/blockchain/all-approvals - Get all approvals from the blockchain');
   console.log('- GET /api/blockchain/status - Check blockchain integration status');
+  console.log('- POST /api/requests/requestAction - Approve or reject a sync request');
+  console.log('- GET /api/requests/getSyncRequests - Get all sync requests with optional filtering');
 });
 
 export default app;
