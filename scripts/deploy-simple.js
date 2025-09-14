@@ -188,7 +188,7 @@ BLOCKCHAIN_ENABLED=true
 USE_MOCK_MODE=false
 ALLOW_MOCK_FALLBACK=false
 
-# Network Configuration - This is critical for Ganache mode to work
+# Network Configuration - This is critical for Ganache real data mode to work
 BLOCKCHAIN_NETWORK=ganache
 
 # API Key for authentication

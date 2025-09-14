@@ -122,27 +122,27 @@ class Web3BlockchainService {
     // Check if we're using Ganache
     this.isGanache = process.env.BLOCKCHAIN_NETWORK === 'ganache';
     
-    // For Ganache, we'll use a hybrid mode - real connection but mock data
+    // For Ganache, use real data mode
     if (this.isGanache) {
-      console.log('GANACHE HYBRID MODE ENABLED: Using Ganache connection with real blockchain data.');
-      console.log('This will connect to Ganache but return reliable test data.');
+      console.log('GANACHE REAL MODE ENABLED: Using Ganache for real blockchain data.');
+      console.log('This will store and retrieve real data from your local Ganache blockchain.');
       
-      // Set mock mode for data operations but still connect to Ganache
-      this.mockMode = true;
+      // Use real data mode for Ganache
+      this.mockMode = false;
       this.realConnection = true;
       this.readOnlyMode = false;
-      return;
-    }
-    
-    // Check if mock mode is explicitly enabled
-    this.mockMode = process.env.USE_MOCK_MODE === 'true';
-    this.readOnlyMode = false;
-    
-    // If mock mode is enabled, log it
-    if (this.mockMode) {
-      console.log('MOCK MODE ENABLED: Using mock blockchain service for all operations.');
-      console.log('This will simulate blockchain operations without requiring real ETH.');
-      return; // Skip real blockchain initialization
+      // Continue with initialization to connect to Ganache
+    } else {
+      // Check if mock mode is explicitly enabled (only for non-Ganache)
+      this.mockMode = process.env.USE_MOCK_MODE === 'true';
+      this.readOnlyMode = false;
+      
+      // If mock mode is enabled, log it
+      if (this.mockMode) {
+        console.log('MOCK MODE ENABLED: Using mock blockchain service for all operations.');
+        console.log('This will simulate blockchain operations without requiring real ETH.');
+        return; // Skip real blockchain initialization
+      }
     }
     
     try {
@@ -514,61 +514,118 @@ class Web3BlockchainService {
       
       console.log('Getting REAL approval from blockchain:', approvalId);
       
-      // Call contract method
-      const result = await this.contract.methods.getApproval(approvalId).call();
-      
-      console.log('REAL blockchain data retrieved successfully for approval:', approvalId);
-      
-      // Log the raw result for debugging
-      console.log('Raw blockchain result:', JSON.stringify(result, null, 2));
-      
-      // Try to find transaction hash and block number for this approval
-      let transactionHash = null;
-      let blockNumber = null;
+      // Try to get approval data using direct call
+      let result;
+      let formattedData;
       
       try {
-        // This is a simplified approach - in a real implementation, you might want to
-        // search through past events to find the transaction that created this approval
+        // Call contract method
+        result = await this.contract.methods.getApproval(approvalId).call();
+        
+        console.log('REAL blockchain data retrieved successfully for approval:', approvalId);
+        
+        // Log the raw result for debugging
+        console.log('Raw blockchain result:', JSON.stringify(result, null, 2));
+        
+        // Format the result
+        formattedData = {
+          requestId: result[0],
+          requesterId: result[1],
+          ownerId: result[2],
+          requestType: result[3],
+          licenceKey: result[4],
+          timestamp: parseInt(result[5]),
+          isActive: result[6],
+          transactionHash: null,
+          blockNumber: null
+        };
+      } catch (callError) {
+        console.error('Error calling getApproval directly:', callError);
+        
+        // If we get an ABI error, try to check if the approval exists by looking at events
+        if (callError.message && callError.message.includes("Returned values aren't valid")) {
+          console.log('ABI error detected, trying alternative approach using events');
+          
+          // Fall back to mock mode if explicitly allowed
+          if (process.env.ALLOW_MOCK_FALLBACK === 'true') {
+            console.warn('WARNING: Falling back to mock mode due to ABI error. This will NOT retrieve real data from the blockchain.');
+            return this._mockGetApproval(approvalId);
+          }
+          
+          throw new Error(`ABI error when retrieving approval: ${callError.message}. Check that your contract ABI matches the deployed contract.`);
+        } else {
+          // For other errors, just rethrow
+          throw callError;
+        }
+      }
+      
+      // Try to find transaction hash and block number for this approval
+      try {
+        // Get events without using filter to avoid ABI errors
         const events = await this.contract.getPastEvents('ApprovalRecorded', {
-          filter: { approvalId: approvalId },
           fromBlock: 0,
           toBlock: 'latest'
         });
         
-        if (events && events.length > 0) {
-          transactionHash = events[0].transactionHash;
-          blockNumber = events[0].blockNumber;
-          console.log(`Found transaction details: hash=${transactionHash}, block=${blockNumber}`);
+        // Filter events manually
+        const matchingEvents = events.filter(event => {
+          try {
+            return event.returnValues && 
+                  event.returnValues.approvalId && 
+                  event.returnValues.approvalId === approvalId;
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        if (matchingEvents && matchingEvents.length > 0) {
+          formattedData.transactionHash = matchingEvents[0].transactionHash;
+          formattedData.blockNumber = matchingEvents[0].blockNumber;
+          console.log(`Found transaction details: hash=${formattedData.transactionHash}, block=${formattedData.blockNumber}`);
         } else {
-          console.log('No events found for this approval ID');
+          console.log('No matching events found for this approval ID');
+          
+          // Try searching all events without filtering
+          console.log('Searching all events for this approval ID');
+          const allEvents = await this.contract.getPastEvents('allEvents', {
+            fromBlock: 0,
+            toBlock: 'latest'
+          });
+          
+          console.log(`Found ${allEvents.length} total events`);
+          
+          // Look for any event that might contain our approval ID
+          for (const event of allEvents) {
+            if (event.returnValues) {
+              const values = Object.values(event.returnValues);
+              if (values.includes(approvalId)) {
+                formattedData.transactionHash = event.transactionHash;
+                formattedData.blockNumber = event.blockNumber;
+                console.log(`Found transaction in event ${event.event}: hash=${formattedData.transactionHash}`);
+                break;
+              }
+            }
+          }
         }
       } catch (eventError) {
         console.warn('Could not retrieve transaction details for approval:', eventError);
       }
       
-      // Format the result
-      const formattedData = {
-        requestId: result[0],
-        requesterId: result[1],
-        ownerId: result[2],
-        requestType: result[3],
-        licenceKey: result[4],
-        timestamp: parseInt(result[5]),
-        isActive: result[6],
-        transactionHash: transactionHash,
-        blockNumber: blockNumber
-      };
-      
       console.log('Formatted blockchain data:', JSON.stringify(formattedData, null, 2));
       
-        return {
-          success: true,
+      return {
+        success: true,
         data: formattedData
       };
     } catch (error) {
       console.error('REAL blockchain get approval error:', error);
       
-      // Do not fall back to mock mode - we want real data only
+      // Check if we should fall back to mock mode
+      if (process.env.ALLOW_MOCK_FALLBACK === 'true') {
+        console.warn('WARNING: Falling back to mock mode due to error. This will NOT retrieve real data from the blockchain.');
+        return this._mockGetApproval(approvalId);
+      }
+      
       return {
         success: false,
         error: `Failed to get approval from blockchain: ${error.message}`,

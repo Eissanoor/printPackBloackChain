@@ -19,7 +19,8 @@
     "setup-local": "node scripts/setup-local-env.js",
     "deploy:local": "node scripts/deploy-web3.js",
     "deploy:sepolia": "node scripts/deploy-web3.js",
-    "real-mode": "npm run deploy-simple && npm run dev"
+    "real-mode": "npm run deploy-simple && npm run dev",
+    "real-data-mode": "npx ganache --deterministic & npm run deploy-simple && npm run dev"
   },
   "keywords": [
     "blockchain",

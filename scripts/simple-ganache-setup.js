@@ -58,7 +58,7 @@ async function setupGanacheEnv() {
     // Note: In a real environment, never hardcode private keys
     const privateKey = '0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d';
     
-    // Create a simple environment file that points to Ganache
+    // Create a simple environment file that points to Ganache with real data mode
     const envContent = `# Ganache Configuration
 BLOCKCHAIN_RPC_URL=http://localhost:8545
 BLOCKCHAIN_PRIVATE_KEY=${privateKey}
@@ -66,10 +66,10 @@ CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000
 
 # Blockchain Settings
 BLOCKCHAIN_ENABLED=true
-USE_MOCK_MODE=true
-ALLOW_MOCK_FALLBACK=true
+USE_MOCK_MODE=false
+ALLOW_MOCK_FALLBACK=false
 
-# Network Configuration - This is critical for Ganache mode to work
+# Network Configuration - This is critical for Ganache real data mode to work
 BLOCKCHAIN_NETWORK=ganache
 
 # API Key for authentication
@@ -87,10 +87,10 @@ API_KEY=print-pack-blockchain-api-key
     console.log('\nGanache environment setup complete!');
     console.log('To use Ganache:');
     console.log('1. Keep Ganache running in a separate terminal');
-    console.log('2. Your API is now configured to use Ganache with mock mode enabled');
+    console.log('2. Your API is now configured to use Ganache with REAL data mode');
     console.log('3. You can start your API server with: npm start');
-    console.log('\nNote: Since contract deployment is complex, we\'re using mock mode for now');
-    console.log('The API will return realistic test data while still using the Ganache network');
+    console.log('\nNote: You need to deploy a contract to Ganache to store real data');
+    console.log('Use npm run deploy-simple to deploy a contract and store real data');
     
     return true;
   } catch (error) {

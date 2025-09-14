@@ -280,13 +280,13 @@ router.get('/search-approvals', apiKeyAuth, async (req, res) => {
     let totalApprovals = 0;
     
     try {
-      // For Ganache hybrid mode, we'll allow mock data
-      if (blockchainService.mockMode && blockchainService.isGanache) {
-        console.log('Using Ganache hybrid mode - this will return reliable test data');
+      // For Ganache, we'll use real data
+      if (blockchainService.isGanache) {
+        console.log('Using Ganache for real blockchain data');
       }
-      // For regular mock mode (not Ganache), show a warning
-      else if (blockchainService.mockMode && !blockchainService.isGanache) {
-        console.log('Mock mode is enabled but not using Ganache, returning warning');
+      // For mock mode (not Ganache), show a warning
+      else if (blockchainService.mockMode) {
+        console.log('Mock mode is enabled but real data was requested, returning warning');
         return res.status(400).json({
           success: false,
           message: 'Mock mode is enabled but real blockchain data was requested',
@@ -515,13 +515,13 @@ router.get('/all-approvals', apiKeyAuth, async (req, res) => {
     let approvals = [];
     
     try {
-      // For Ganache hybrid mode, we'll allow mock data
-      if (blockchainService.mockMode && blockchainService.isGanache) {
-        console.log('Using Ganache hybrid mode - this will return reliable test data');
+      // For Ganache, we'll use real data
+      if (blockchainService.isGanache) {
+        console.log('Using Ganache for real blockchain data');
       }
-      // For regular mock mode (not Ganache), show a warning
-      else if (blockchainService.mockMode && !blockchainService.isGanache) {
-        console.log('Mock mode is enabled but not using Ganache, returning warning');
+      // For mock mode (not Ganache), show a warning
+      else if (blockchainService.mockMode) {
+        console.log('Mock mode is enabled but real data was requested, returning warning');
         return res.status(400).json({
           success: false,
           message: 'Mock mode is enabled but real blockchain data was requested',
