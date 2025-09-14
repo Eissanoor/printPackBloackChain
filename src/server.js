@@ -97,6 +97,8 @@ app.listen(PORT, () => {
   console.log('API Endpoints:');
   console.log('- POST /api/blockchain/record-approval - Record a sync approval');
   console.log('- GET /api/blockchain/approval/:approvalId - Get approval details');
+  console.log('- GET /api/blockchain/transaction/:transactionHash - Get transaction details by hash');
+  console.log('- GET /api/blockchain/approval-transactions/:approvalId - Get all transactions for an approval');
   console.log('- GET /api/blockchain/all-approvals - Get all approvals from the blockchain');
   console.log('- GET /api/blockchain/search-approvals - Search for approvals with various parameters');
   console.log('- GET /api/blockchain/status - Check blockchain integration status');

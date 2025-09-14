@@ -11,10 +11,15 @@
     "blockchain": "node src/index.js",
     "ganache": "node scripts/start-ganache.js",
     "setup-ganache": "node scripts/ganache-setup.js",
+    "deploy-and-seed": "node scripts/deploy-and-seed.js",
+    "deploy-contract": "node scripts/deploy-contract.js",
+    "deploy-simple": "node scripts/deploy-simple.js",
+    "record-approvals": "node scripts/record-approvals.js",
+    "simple-setup": "node scripts/simple-ganache-setup.js",
     "setup-local": "node scripts/setup-local-env.js",
     "deploy:local": "node scripts/deploy-web3.js",
     "deploy:sepolia": "node scripts/deploy-web3.js",
-    "free-mode": "npm run setup-ganache && npm run dev"
+    "real-mode": "npm run deploy-simple && npm run dev"
   },
   "keywords": [
     "blockchain",

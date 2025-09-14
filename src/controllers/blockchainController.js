@@ -1,156 +1,325 @@
 import Web3BlockchainService from '../services/web3BlockchainService.js';
-import { generateApprovalId, generateTransactionRef } from '../utils/idGenerator.js';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
-
-// Create blockchain service instance
-let blockchainService;
-
-try {
-    blockchainService = new Web3BlockchainService();
-    console.log('Blockchain service initialized successfully');
-} catch (error) {
-    console.error('Failed to initialize blockchain service:', error);
-    // We'll create the service instance on-demand in the functions below
-}
 
 /**
  * Record a sync approval on the blockchain
  * 
- * @param {Object} syncRequest - The sync request object
- * @param {string} action - The action taken (approve, reject)
- * @returns {Promise<Object>} - Result of the blockchain operation
+ * @param {Object} syncRequest - The sync request to approve
+ * @param {string} action - The action to take (approve/reject)
+ * @returns {Promise<Object>} Result of the blockchain operation
  */
 export const recordSyncApprovalOnBlockchain = async (syncRequest, action) => {
-    try {
-        // Check if blockchain integration is enabled
-        if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
-            console.log('Blockchain integration is disabled. Skipping blockchain recording.');
-            return {
-                success: true,
-                blockchain_enabled: false,
-                message: 'Blockchain integration is disabled'
-            };
-        }
-        
-        // Only record approved requests
-        if (action !== 'approve') {
-            return {
-                success: true,
-                recorded: false,
-                message: 'Only approved requests are recorded on blockchain'
-            };
-        }
-        
-        // Initialize blockchain service if not already done
-        if (!blockchainService) {
-            console.log('Initializing blockchain service on-demand');
-            blockchainService = new Web3BlockchainService();
-        }
-        
-        // Generate a unique approval ID
-        const timestamp = Date.now();
-        const approvalId = generateApprovalId(
-            syncRequest.id,
-            syncRequest.requester_id,
-            syncRequest.owner_id,
-            timestamp
-        );
-        
-        // Prepare data for blockchain
-        const approvalData = {
-            approvalId,
-            requestId: syncRequest.id,
-            requesterId: syncRequest.requester_id,
-            ownerId: syncRequest.owner_id,
-            requestType: syncRequest.request_type,
-            licenceKey: syncRequest.licence_key || ''
-        };
-        
-        console.log('Sending REAL blockchain transaction for approval:', approvalData);
-        
-        // Record on blockchain
-        const result = await blockchainService.recordSyncApproval(approvalData);
-        
-        if (result.success) {
-            console.log('REAL blockchain transaction successful!');
-            console.log('Transaction hash:', result.transactionHash);
-            console.log('Block number:', result.blockNumber);
-            
-            return {
-                success: true,
-                recorded: true,
-                blockchain_data: {
-                    approval_id: approvalId,
-                    transaction_hash: result.transactionHash,
-                    block_number: result.blockNumber,
-                    transaction_ref: generateTransactionRef(syncRequest.request_type.toUpperCase())
-                }
-            };
-        } else {
-            console.error('Failed to record on REAL blockchain:', result.error);
-            return {
-                success: false,
-                recorded: false,
-                error: result.error,
-                details: result.details || {}
-            };
-        }
-    } catch (error) {
-        console.error('Blockchain controller error:', error);
-        return {
-            success: false,
-            recorded: false,
-            error: error.message
-        };
+  try {
+    // Only record approvals, not rejections
+    if (action !== 'approve') {
+      return {
+        success: true,
+        recorded: false,
+        message: 'Action was not an approval, no blockchain record needed'
+      };
     }
+    
+    console.log('Sending REAL blockchain transaction for approval:', {
+      approvalId: syncRequest.id,
+      requestId: syncRequest.id,
+      requesterId: syncRequest.requester_id,
+      ownerId: syncRequest.owner_id,
+      requestType: syncRequest.request_type,
+      licenceKey: syncRequest.licence_key
+    });
+    
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // Record the approval on the blockchain
+    const result = await blockchainService.recordSyncApproval({
+      approvalId: syncRequest.id,
+      requestId: syncRequest.id,
+      requesterId: syncRequest.requester_id,
+      ownerId: syncRequest.owner_id,
+      requestType: syncRequest.request_type,
+      licenceKey: syncRequest.licence_key || ''
+    });
+    
+    if (result.success) {
+      return {
+        success: true,
+        recorded: true,
+        blockchain_data: result
+      };
+    } else {
+      console.error('Failed to record on blockchain:', result.error);
+      return {
+        success: false,
+        error: `Failed to record on blockchain: ${result.error}`,
+        details: result.details
+      };
+    }
+  } catch (error) {
+    console.error('Error recording approval on blockchain:', error);
+    return {
+      success: false,
+      error: `Failed to record approval on blockchain: ${error.message}`
+    };
+  }
 };
 
 /**
- * Get approval details from blockchain
+ * Get approval details from the blockchain
  * 
- * @param {string} approvalId - The blockchain approval ID
- * @returns {Promise<Object>} - Approval details
+ * @param {string} approvalId - The ID of the approval to retrieve
+ * @returns {Promise<Object>} Approval details from the blockchain
  */
 export const getBlockchainApproval = async (approvalId) => {
-    try {
-        // Check if blockchain integration is enabled
-        if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
-            return {
-                success: false,
-                blockchain_enabled: false,
-                message: 'Blockchain integration is disabled'
-            };
+  try {
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // Get the approval from the blockchain
+    const result = await blockchainService.getApproval(approvalId);
+    
+    return result;
+  } catch (error) {
+    console.error('Error getting approval from blockchain:', error);
+    return {
+      success: false,
+      error: `Failed to get approval from blockchain: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get transaction details from the blockchain
+ * 
+ * @param {string} transactionHash - The transaction hash to look up
+ * @returns {Promise<Object>} Transaction details from the blockchain
+ */
+export const getBlockchainTransaction = async (transactionHash) => {
+  try {
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // If in mock mode, return mock data
+    if (blockchainService.mockMode) {
+      console.log('Using mock mode for transaction lookup:', transactionHash);
+      
+      return {
+        success: true,
+        data: {
+          transactionHash: transactionHash,
+          blockNumber: 1757836096758,
+          from: '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1',
+          to: blockchainService.contractAddress || '0x0290FB167208Af455bB137780163b7B7a9a10C16',
+          gasUsed: '500000',
+          status: true,
+          events: [
+            {
+              event: 'ApprovalRecorded',
+              approvalId: '05310f3f8c5dc58a7a80b1efbbc35df1',
+              requesterId: 'real-requester-id-1',
+              ownerId: 'real-owner-id-1',
+              requestType: 'GCP',
+              timestamp: Math.floor(Date.now() / 1000) - 3600
+            }
+          ],
+          timestamp: Math.floor(Date.now() / 1000) - 3600,
+          confirmations: 12
         }
-        
-        // Initialize blockchain service if not already done
-        if (!blockchainService) {
-            console.log('Initializing blockchain service on-demand');
-            blockchainService = new Web3BlockchainService();
-        }
-        
-        console.log('Getting REAL blockchain approval data for:', approvalId);
-        
-        const result = await blockchainService.getApproval(approvalId);
-        
-        if (result.success) {
-            console.log('REAL blockchain data retrieved successfully!');
-            return result;
-        } else {
-            console.error('Failed to get approval from REAL blockchain:', result.error);
-            return {
-                success: false,
-                error: result.error,
-                details: result.details || {}
-            };
-        }
-    } catch (error) {
-        console.error('Get blockchain approval error:', error);
-        return {
-            success: false,
-            error: error.message
-        };
+      };
     }
+    
+    // Get transaction from Web3
+    const web3 = blockchainService.web3;
+    
+    // Get transaction
+    const tx = await web3.eth.getTransaction(transactionHash);
+    if (!tx) {
+      return {
+        success: false,
+        message: 'Transaction not found'
+      };
+    }
+    
+    // Get transaction receipt
+    const receipt = await web3.eth.getTransactionReceipt(transactionHash);
+    
+    // Get block info to get timestamp
+    const block = await web3.eth.getBlock(tx.blockNumber);
+    
+    // Format the response
+    const response = {
+      transactionHash: tx.hash,
+      blockNumber: tx.blockNumber,
+      from: tx.from,
+      to: tx.to,
+      gasUsed: receipt ? receipt.gasUsed : null,
+      status: receipt ? receipt.status : null,
+      timestamp: block ? block.timestamp : null,
+      value: web3.utils.fromWei(tx.value, 'ether'),
+      confirmations: tx.blockNumber ? await web3.eth.getBlockNumber() - tx.blockNumber : 0
+    };
+    
+    // Try to decode logs if available
+    if (receipt && receipt.logs && receipt.logs.length > 0) {
+      try {
+        // This would require the ABI to properly decode events
+        // For now, we'll just include the raw logs
+        response.logs = receipt.logs;
+      } catch (error) {
+        console.warn('Could not decode logs:', error.message);
+      }
+    }
+    
+    return {
+      success: true,
+      data: response
+    };
+  } catch (error) {
+    console.error('Error getting transaction from blockchain:', error);
+    return {
+      success: false,
+      error: `Failed to get transaction from blockchain: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get all transactions related to a specific approval ID
+ * 
+ * @param {string} approvalId - The approval ID to look up transactions for
+ * @returns {Promise<Object>} All transactions related to the approval
+ */
+export const getApprovalTransactions = async (approvalId) => {
+  try {
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // If in mock mode, return mock data
+    if (blockchainService.mockMode) {
+      console.log('Using mock mode for approval transactions lookup:', approvalId);
+      
+      // Return mock transactions for this approval
+      return {
+        success: true,
+        data: {
+          approvalId: approvalId,
+          transactions: [
+            {
+              type: "record",
+              transactionHash: "0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466",
+              blockNumber: 1757836096758,
+              from: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              to: blockchainService.contractAddress || "0x0290FB167208Af455bB137780163b7B7a9a10C16",
+              gasUsed: "500000",
+              status: true,
+              timestamp: Math.floor(Date.now() / 1000) - 86400,
+              event: "ApprovalRecorded"
+            },
+            {
+              type: "update",
+              transactionHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+              blockNumber: 1757836096800,
+              from: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+              to: blockchainService.contractAddress || "0x0290FB167208Af455bB137780163b7B7a9a10C16",
+              gasUsed: "300000",
+              status: true,
+              timestamp: Math.floor(Date.now() / 1000) - 3600,
+              event: "ApprovalUpdated"
+            }
+          ],
+          total_transactions: 2
+        }
+      };
+    }
+    
+    // For real blockchain, we need to search for events related to this approval ID
+    try {
+      const web3 = blockchainService.web3;
+      const contract = blockchainService.contract;
+      
+      // First get the approval to verify it exists
+      const approvalResult = await blockchainService.getApproval(approvalId);
+      if (!approvalResult.success) {
+        return {
+          success: false,
+          message: 'Approval not found',
+          error: approvalResult.error
+        };
+      }
+      
+      // Now search for events related to this approval ID
+      // This is a simplified approach - in a production environment, you would
+      // need to handle pagination and filter by specific event types
+      const events = await contract.getPastEvents('allEvents', {
+        filter: { approvalId: approvalId },
+        fromBlock: 0,
+        toBlock: 'latest'
+      });
+      
+      // Process each event to get transaction details
+      const transactions = [];
+      for (const event of events) {
+        // Get transaction details
+        const tx = await web3.eth.getTransaction(event.transactionHash);
+        const receipt = await web3.eth.getTransactionReceipt(event.transactionHash);
+        const block = await web3.eth.getBlock(event.blockNumber);
+        
+        // Determine event type
+        let eventType = "unknown";
+        if (event.event === "ApprovalRecorded") {
+          eventType = "record";
+        } else if (event.event === "ApprovalDeactivated") {
+          eventType = "deactivate";
+        }
+        
+        // Add to transactions array
+        transactions.push({
+          type: eventType,
+          transactionHash: event.transactionHash,
+          blockNumber: event.blockNumber,
+          from: tx.from,
+          to: tx.to,
+          gasUsed: receipt ? receipt.gasUsed : null,
+          status: receipt ? receipt.status : null,
+          timestamp: block ? block.timestamp : null,
+          event: event.event
+        });
+      }
+      
+      return {
+        success: true,
+        data: {
+          approvalId: approvalId,
+          transactions: transactions,
+          total_transactions: transactions.length
+        }
+      };
+    } catch (error) {
+      console.error('Error searching for approval events:', error);
+      
+      // If we can't search for events, return a fallback with the approval data
+      return {
+        success: true,
+        data: {
+          approvalId: approvalId,
+          transactions: [
+            {
+              type: "record",
+              transactionHash: approvalResult.data.transactionHash || "unknown",
+              blockNumber: approvalResult.data.blockNumber || 0,
+              status: true,
+              event: "ApprovalRecorded"
+            }
+          ],
+          total_transactions: 1,
+          note: "Limited transaction data available"
+        }
+      };
+    }
+  } catch (error) {
+    console.error('Error getting approval transactions:', error);
+    return {
+      success: false,
+      error: `Failed to get approval transactions: ${error.message}`
+    };
+  }
 };

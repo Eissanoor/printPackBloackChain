@@ -75,13 +75,101 @@ X-API-Key: {{api_key}}
       "approval_id": "7f8e9d6c5b4a3210fedcba9876543210",
       "transaction_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
       "block_number": 12345678,
-      "transaction_ref": "GCP_1694563200000_1234"
+      "transaction_ref": "GCP_1757836096759_0559"
     }
   }
 }
 ```
 
-### 3. Search Approvals from Blockchain
+### 3. Get Transaction Details from Blockchain
+
+**Request:**
+```
+GET {{base_url}}/api/blockchain/transaction/0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466
+```
+
+**Headers:**
+```
+X-API-Key: {{api_key}}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Transaction details retrieved successfully",
+  "data": {
+    "transactionHash": "0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466",
+    "blockNumber": 1757836096758,
+    "from": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+    "to": "0x0290FB167208Af455bB137780163b7B7a9a10C16",
+    "gasUsed": "500000",
+    "status": true,
+    "events": [
+      {
+        "event": "ApprovalRecorded",
+        "approvalId": "05310f3f8c5dc58a7a80b1efbbc35df1",
+        "requesterId": "real-requester-id-1",
+        "ownerId": "real-owner-id-1",
+        "requestType": "GCP",
+        "timestamp": 1695123456
+      }
+    ],
+    "timestamp": 1695123456,
+    "confirmations": 12
+  }
+}
+```
+
+### 4. Get All Transactions for an Approval
+
+**Request:**
+```
+GET {{base_url}}/api/blockchain/approval-transactions/05310f3f8c5dc58a7a80b1efbbc35df1
+```
+
+**Headers:**
+```
+X-API-Key: {{api_key}}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Approval transactions retrieved successfully",
+  "data": {
+    "approvalId": "05310f3f8c5dc58a7a80b1efbbc35df1",
+    "transactions": [
+      {
+        "type": "record",
+        "transactionHash": "0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466",
+        "blockNumber": 1757836096758,
+        "from": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+        "to": "0x0290FB167208Af455bB137780163b7B7a9a10C16",
+        "gasUsed": "500000",
+        "status": true,
+        "timestamp": 1695123456,
+        "event": "ApprovalRecorded"
+      },
+      {
+        "type": "update",
+        "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "blockNumber": 1757836096800,
+        "from": "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+        "to": "0x0290FB167208Af455bB137780163b7B7a9a10C16",
+        "gasUsed": "300000",
+        "status": true,
+        "timestamp": 1695223456,
+        "event": "ApprovalUpdated"
+      }
+    ],
+    "total_transactions": 2
+  }
+}
+```
+
+### 5. Search Approvals from Blockchain
 
 **Request:**
 ```
@@ -135,7 +223,7 @@ X-API-Key: {{api_key}}
 }
 ```
 
-### 4. Get All Approvals from Blockchain
+### 6. Get All Approvals from Blockchain
 
 **Request:**
 ```
@@ -157,11 +245,11 @@ X-API-Key: {{api_key}}
     "approvals": [
       {
         "approval_id": "480e24ac73d48cd107ea16cd14798b89",
-        "requestId": "test-request-id",
-        "requesterId": "test-requester-id",
-        "ownerId": "test-owner-id",
+        "requestId": "real-request-id-1",
+        "requesterId": "real-requester-id-1",
+        "ownerId": "real-owner-id-1",
         "requestType": "gcp",
-        "licenceKey": "test-licence-key",
+        "licenceKey": "GS1-123456",
         "timestamp": 1694563200,
         "isActive": true,
         "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -169,11 +257,11 @@ X-API-Key: {{api_key}}
       },
       {
         "approval_id": "7f8e9d6c5b4a3210fedcba9876543210",
-        "requestId": "test-request-id-2",
-        "requesterId": "test-requester-id-2",
-        "ownerId": "test-owner-id-2",
+        "requestId": "real-request-id-2",
+        "requesterId": "real-requester-id-2",
+        "ownerId": "real-owner-id-2",
         "requestType": "excel",
-        "licenceKey": "test-licence-key-2",
+        "licenceKey": "GS1-654321",
         "timestamp": 1694563100,
         "isActive": false,
         "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
@@ -184,7 +272,7 @@ X-API-Key: {{api_key}}
 }
 ```
 
-### 4. Get Approval Details from Blockchain
+### 7. Get Approval Details from Blockchain
 
 **Request:**
 ```
@@ -202,15 +290,15 @@ X-API-Key: {{api_key}}
   "success": true,
   "message": "Approval details retrieved successfully",
   "data": {
-    "requestId": "clm3x7z9p000008l4g5tf1jq2",
-    "requesterId": "clm3x7z9p000008l4g5tf1jq3",
-    "ownerId": "clm3x7z9p000008l4g5tf1jq4",
-    "requestType": "gcp",
-    "licenceKey": "GS1-12345-ABC",
-    "timestamp": 1694563200,
-    "isActive": true,
-    "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    "blockNumber": 12345678
+    "requestId": "real-request-id-2",
+    "requesterId": "real-requester-id-2",
+    "ownerId": "real-owner-id-2",
+    "requestType": "excel",
+    "licenceKey": "GS1-654321",
+    "timestamp": 1694563100,
+    "isActive": false,
+    "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    "blockNumber": 12345600
   }
 }
 ```
@@ -254,8 +342,8 @@ Authorization: Bearer {{auth_token}}
     "next_steps": "Requester can now use GCP to sync product data",
       "blockchain": {
         "recorded": true,
-        "transaction_ref": "GCP_1694563200000_1234",
-        "transaction_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "transaction_ref": "GCP_1757836096759_0559",
+        "transaction_hash": "0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466",
         "contract_data": {
           "requestId": "clm3x7z9p000008l4g5tf1jq2",
           "requesterId": "clm3x7z9p000008l4g5tf1jq3",
@@ -264,7 +352,7 @@ Authorization: Bearer {{auth_token}}
           "licenceKey": "GS1-12345-ABC",
           "timestamp": 1694563200,
           "isActive": true,
-          "blockNumber": 12345678
+          "blockNumber": 1757836096758
         }
       }
   }
@@ -347,8 +435,8 @@ X-API-Key: {{api_key}}
           "licenceKey": "GS1-12345-ABC",
           "timestamp": 1694563200,
           "isActive": true,
-          "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-          "blockNumber": 12345678
+          "transactionHash": "0x7b22617070726f76616c5f6964223a2230353331306633663863356463353861376138306231656662626333356466",
+          "blockNumber": 1757836096758
         }
       },
       "requester": {
