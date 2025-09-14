@@ -57,9 +57,53 @@ When a product owner approves a sync request from another user, the approval is 
 
 ## Local Development
 
-The project includes a mock implementation of the blockchain service for development purposes. This allows you to run and test the API without needing to connect to an actual blockchain.
+There are three ways to run the blockchain integration:
 
-### Using the Mock Implementation
+### 1. FREE MODE: Using Ganache (Recommended for Development)
+
+This method uses a local Ganache blockchain that runs on your machine. It's completely free and doesn't require any external connections or real ETH.
+
+#### Step-by-Step Instructions:
+
+1. First, set up the Ganache environment:
+   ```
+   npm run setup-ganache
+   ```
+   This creates a `.env` file with the correct Ganache settings.
+
+2. In a separate terminal, start Ganache:
+   ```
+   npx ganache --deterministic
+   ```
+   This starts a local blockchain with pre-funded accounts.
+
+3. Start your API server:
+   ```
+   npm start
+   ```
+
+#### Important Notes for Ganache Mode:
+
+- Make sure `BLOCKCHAIN_NETWORK=ganache` is in your `.env` file (the setup script adds this)
+- Ganache accounts come with 1000 ETH each, so you won't need to get test ETH
+- The first account in Ganache will be used automatically for transactions
+- Keep the Ganache terminal window open while using the API
+
+#### Troubleshooting:
+
+If you see "insufficient funds" errors:
+1. Make sure Ganache is running in a separate terminal
+2. Check that your `.env` file has `BLOCKCHAIN_NETWORK=ganache`
+3. Try restarting both Ganache and your API server
+
+If you see "Do not know how to serialize a BigInt" errors:
+1. This is fixed in the latest version with a custom JSON serializer
+2. Make sure you're using the latest version of the code
+3. The API automatically converts BigInt values to strings in JSON responses
+
+### 2. Using the Mock Implementation
+
+This method simulates blockchain operations without an actual blockchain.
 
 1. Set up your `.env` file with mock mode enabled:
    ```
@@ -81,9 +125,9 @@ The mock implementation will:
 - Return mock data for blockchain queries
 - Work without requiring any real ETH in your account
 
-### Getting Test ETH for Real Blockchain Testing
+### 3. Using a Public Testnet (Requires Test ETH)
 
-If you want to use a real blockchain (like Sepolia testnet) instead of mock mode, you'll need test ETH to pay for gas fees:
+If you want to use a public testnet (like Sepolia), you'll need test ETH to pay for gas fees:
 
 1. Run the helper script to check your account and get instructions:
    ```
@@ -93,29 +137,6 @@ If you want to use a real blockchain (like Sepolia testnet) instead of mock mode
 2. Follow the instructions to get test ETH from a faucet
 3. Once your account has ETH, you can use the real blockchain without mock mode
 
-### Using Ganache (Optional)
-
-If you want to test with an actual local blockchain:
-
-1. Start the local Ganache blockchain:
-   ```
-   npm run ganache
-   ```
-   This will start a local blockchain at http://localhost:8545 and output account information.
-
-2. Copy the private key from the console output and update your `.env` file:
-   ```
-   BLOCKCHAIN_RPC_URL=http://localhost:8545
-   BLOCKCHAIN_PRIVATE_KEY=private-key-from-ganache-output
-   ```
-
-3. Deploy the contract to the local blockchain:
-   ```
-   npm run deploy:local
-   ```
-   This will automatically update your `.env` file with the deployed contract address.
-
-Note: To use the actual Web3 implementation instead of the mock, you'll need to install the web3 package and update the Web3BlockchainService.js file.
 
 ## Production Deployment
 

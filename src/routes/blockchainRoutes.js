@@ -129,6 +129,214 @@ router.get(
 );
 
 /**
+ * @route GET /api/blockchain/search-approvals
+ * @desc Search for approvals on the blockchain with various parameters
+ * @access Private
+ */
+router.get('/search-approvals', apiKeyAuth, async (req, res) => {
+  try {
+    // Get query parameters
+    const { 
+      requestId, 
+      requesterId, 
+      ownerId, 
+      requestType, 
+      licenceKey, 
+      fromDate, 
+      toDate, 
+      isActive 
+    } = req.query;
+    
+    // Initialize blockchain service
+    let blockchainService;
+    
+    try {
+      blockchainService = new Web3BlockchainService();
+      console.log('Blockchain service initialized for search-approvals endpoint');
+    } catch (error) {
+      console.error('Error initializing blockchain service:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to initialize blockchain service',
+        error: error.message,
+        details: {
+          solution: 'Please check your blockchain configuration in .env file or enable USE_MOCK_MODE=true'
+        }
+      });
+    }
+    
+    // Check if blockchain integration is enabled
+    if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
+      return res.status(200).json({
+        success: false,
+        message: 'Blockchain integration is disabled',
+        data: {
+          blockchain_enabled: false
+        }
+      });
+    }
+    
+    // Get all approvals first
+    let allApprovals = [];
+    let totalApprovals = 0;
+    
+    try {
+      // Check if we're in mock mode - if so, we don't want to use it
+      if (blockchainService.mockMode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mock mode is enabled but real blockchain data was requested',
+          error: 'Cannot get real blockchain data in mock mode',
+          solution: 'Set USE_MOCK_MODE=false in your .env file and ensure you have a valid blockchain connection'
+        });
+      }
+      
+      // Check if we're in read-only mode
+      if (blockchainService.readOnlyMode) {
+        console.log('Using read-only mode to fetch blockchain data');
+      }
+      
+      console.log('Fetching REAL blockchain data...');
+      
+      // Get total number of approvals
+      totalApprovals = await blockchainService.getTotalApprovals();
+      console.log(`Found ${totalApprovals} total approvals on the blockchain`);
+      
+      // Get all approvals
+      for (let i = 0; i < totalApprovals; i++) {
+        try {
+          // Get approval ID at index i
+          const approvalId = await blockchainService.getApprovalIdByIndex(i);
+          console.log(`Fetching approval ${i+1}/${totalApprovals}, ID: ${approvalId}`);
+          
+          // Get approval details
+          const approvalData = await blockchainService.getApproval(approvalId);
+          
+          if (approvalData.success) {
+            const approval = {
+              approval_id: approvalId,
+              ...approvalData.data
+            };
+            
+            console.log(`Successfully retrieved approval: ${approval.requestId}`);
+            allApprovals.push(approval);
+          }
+        } catch (error) {
+          console.error(`Error getting approval at index ${i}:`, error);
+          // Continue to the next approval
+        }
+      }
+      
+      console.log(`Successfully retrieved ${allApprovals.length} approvals from the blockchain`);
+      
+      // If no approvals were found
+      if (allApprovals.length === 0) {
+        console.log('No approvals found on the blockchain');
+      }
+    } catch (error) {
+      console.error('Error getting approvals from blockchain:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving approvals from blockchain',
+        error: error.message,
+        details: {
+          solution: 'Please ensure your blockchain connection is properly configured and the contract is deployed'
+        }
+      });
+    }
+    
+    // Filter approvals based on query parameters
+    let filteredApprovals = allApprovals;
+    
+    // Filter by requestId
+    if (requestId) {
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.requestId && approval.requestId.toLowerCase().includes(requestId.toLowerCase())
+      );
+    }
+    
+    // Filter by requesterId
+    if (requesterId) {
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.requesterId && approval.requesterId.toLowerCase().includes(requesterId.toLowerCase())
+      );
+    }
+    
+    // Filter by ownerId
+    if (ownerId) {
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.ownerId && approval.ownerId.toLowerCase().includes(ownerId.toLowerCase())
+      );
+    }
+    
+    // Filter by requestType
+    if (requestType) {
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.requestType && approval.requestType.toLowerCase() === requestType.toLowerCase()
+      );
+    }
+    
+    // Filter by licenceKey
+    if (licenceKey) {
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.licenceKey && approval.licenceKey.toLowerCase().includes(licenceKey.toLowerCase())
+      );
+    }
+    
+    // Filter by date range
+    if (fromDate) {
+      const fromTimestamp = new Date(fromDate).getTime();
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.timestamp && approval.timestamp >= fromTimestamp
+      );
+    }
+    
+    if (toDate) {
+      const toTimestamp = new Date(toDate).getTime();
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.timestamp && approval.timestamp <= toTimestamp
+      );
+    }
+    
+    // Filter by isActive
+    if (isActive !== undefined) {
+      const activeStatus = isActive === 'true';
+      filteredApprovals = filteredApprovals.filter(approval => 
+        approval.isActive === activeStatus
+      );
+    }
+    
+    // Return the filtered approvals
+    return res.status(200).json({
+      success: true,
+      message: 'Approvals retrieved successfully',
+      data: {
+        total_found: filteredApprovals.length,
+        total_approvals: totalApprovals,
+        approvals: filteredApprovals,
+        search_parameters: {
+          requestId,
+          requesterId,
+          ownerId,
+          requestType,
+          licenceKey,
+          fromDate,
+          toDate,
+          isActive
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Search approvals error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
  * @route GET /api/blockchain/all-approvals
  * @desc Get all approvals from the blockchain
  * @access Private
@@ -169,29 +377,53 @@ router.get('/all-approvals', apiKeyAuth, async (req, res) => {
     let approvals = [];
     
     try {
+      // Check if we're in mock mode - if so, we don't want to use it
+      if (blockchainService.mockMode) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mock mode is enabled but real blockchain data was requested',
+          error: 'Cannot get real blockchain data in mock mode',
+          solution: 'Set USE_MOCK_MODE=false in your .env file and ensure you have a valid blockchain connection'
+        });
+      }
+      
+      // Check if we're in read-only mode
+      if (blockchainService.readOnlyMode) {
+        console.log('Using read-only mode to fetch blockchain data');
+      }
+      
+      console.log('Fetching REAL blockchain data for all approvals...');
+      
       // Try to get the total number of approvals
       totalApprovals = await blockchainService.getTotalApprovals();
+      console.log(`Found ${totalApprovals} total approvals on the blockchain`);
       
       // Get all approvals
       for (let i = 0; i < totalApprovals; i++) {
         try {
           // Get approval ID at index i
           const approvalId = await blockchainService.getApprovalIdByIndex(i);
+          console.log(`Fetching approval ${i+1}/${totalApprovals}, ID: ${approvalId}`);
           
           // Get approval details
           const approvalData = await blockchainService.getApproval(approvalId);
           
           if (approvalData.success) {
-            approvals.push({
+            const approval = {
               approval_id: approvalId,
               ...approvalData.data
-            });
+            };
+            
+            console.log(`Successfully retrieved approval: ${approval.requestId}`);
+            approvals.push(approval);
           }
         } catch (error) {
           console.error(`Error getting approval at index ${i}:`, error);
           // Continue to the next approval
         }
       }
+      
+      console.log(`Successfully retrieved ${approvals.length} approvals from the blockchain`);
       
       return res.status(200).json({
         success: true,
@@ -202,41 +434,13 @@ router.get('/all-approvals', apiKeyAuth, async (req, res) => {
         }
       });
     } catch (error) {
-      // If there's an error getting the total approvals, return mock data
-      console.error('Error getting total approvals:', error);
-      
-      // Return mock data
-      return res.status(200).json({
-        success: true,
-        message: 'Mock blockchain approvals retrieved',
-        data: {
-          total_approvals: 2,
-          approvals: [
-            {
-              approval_id: '480e24ac73d48cd107ea16cd14798b89',
-              requestId: 'test-request-id',
-              requesterId: 'test-requester-id',
-              ownerId: 'test-owner-id',
-              requestType: 'gcp',
-              licenceKey: 'test-licence-key',
-              timestamp: Date.now() - 86400000, // 1 day ago
-              isActive: true,
-              transactionHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-              blockNumber: 12345678
-            },
-            {
-              approval_id: '7f8e9d6c5b4a3210fedcba9876543210',
-              requestId: 'test-request-id-2',
-              requesterId: 'test-requester-id-2',
-              ownerId: 'test-owner-id-2',
-              requestType: 'excel',
-              licenceKey: 'test-licence-key-2',
-              timestamp: Date.now() - 172800000, // 2 days ago
-              isActive: false,
-              transactionHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-              blockNumber: 12345600
-            }
-          ]
+      console.error('Error getting approvals from blockchain:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving approvals from blockchain',
+        error: error.message,
+        details: {
+          solution: 'Please ensure your blockchain connection is properly configured and the contract is deployed'
         }
       });
     }

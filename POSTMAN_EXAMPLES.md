@@ -81,7 +81,61 @@ X-API-Key: {{api_key}}
 }
 ```
 
-### 3. Get All Approvals from Blockchain
+### 3. Search Approvals from Blockchain
+
+**Request:**
+```
+GET {{base_url}}/api/blockchain/search-approvals?requestType=gcp&fromDate=2023-01-01&isActive=true&licenceKey=GS1
+```
+
+**Headers:**
+```
+X-API-Key: {{api_key}}
+```
+
+**Query Parameters:**
+- `requestId` (optional): Filter by request ID
+- `requesterId` (optional): Filter by requester ID
+- `ownerId` (optional): Filter by owner ID
+- `requestType` (optional): Filter by request type (gcp, excel)
+- `licenceKey` (optional): Filter by licence key
+- `fromDate` (optional): Filter by date range start (YYYY-MM-DD)
+- `toDate` (optional): Filter by date range end (YYYY-MM-DD)
+- `isActive` (optional): Filter by active status (true, false)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Approvals retrieved successfully",
+  "data": {
+    "total_found": 1,
+    "total_approvals": 2,
+    "approvals": [
+      {
+        "approval_id": "480e24ac73d48cd107ea16cd14798b89",
+        "requestId": "clm3x7z9p000008l4g5tf1jq2",
+        "requesterId": "clm3x7z9p000008l4g5tf1jq3",
+        "ownerId": "clm3x7z9p000008l4g5tf1jq4",
+        "requestType": "gcp",
+        "licenceKey": "GS1-12345-ABC",
+        "timestamp": 1694563200,
+        "isActive": true,
+        "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "blockNumber": 12345678
+      }
+    ],
+    "search_parameters": {
+      "requestType": "gcp",
+      "fromDate": "2023-01-01",
+      "isActive": "true",
+      "licenceKey": "GS1"
+    }
+  }
+}
+```
+
+### 4. Get All Approvals from Blockchain
 
 **Request:**
 ```

@@ -59,6 +59,26 @@ try {
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getTotalApprovals",
+        "outputs": [
+          { "internalType": "uint256", "name": "", "type": "uint256" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "uint256", "name": "index", "type": "uint256" }
+        ],
+        "name": "getApprovalIdByIndex",
+        "outputs": [
+          { "internalType": "string", "name": "", "type": "string" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
       }
     ];
   }
@@ -99,6 +119,9 @@ class Web3BlockchainService {
     this.privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
     this.contractAddress = process.env.CONTRACT_ADDRESS;
     
+    // Check if we're using Ganache
+    this.isGanache = process.env.BLOCKCHAIN_NETWORK === 'ganache';
+    
     // Check if mock mode is explicitly enabled
     this.mockMode = process.env.USE_MOCK_MODE === 'true';
     this.readOnlyMode = false;
@@ -108,6 +131,12 @@ class Web3BlockchainService {
       console.log('MOCK MODE ENABLED: Using mock blockchain service for all operations.');
       console.log('This will simulate blockchain operations without requiring real ETH.');
       return; // Skip real blockchain initialization
+    }
+    
+    // Log if we're using Ganache
+    if (this.isGanache) {
+      console.log('GANACHE MODE ENABLED: Using local Ganache blockchain.');
+      console.log('Make sure Ganache is running with: npx ganache --deterministic');
     }
     
     try {
@@ -120,26 +149,31 @@ class Web3BlockchainService {
         this.contractAddress
       );
       
-      // Create account from private key if available
-      if (this.privateKey) {
-        try {
-          // Validate and format the private key
-          const formattedKey = Web3BlockchainService.validatePrivateKey(this.privateKey);
-            
-          console.log('Attempting to create account with private key (first 4 chars):', formattedKey.substring(0, 6) + '...');
-          this.account = this.web3.eth.accounts.privateKeyToAccount(formattedKey);
-          this.web3.eth.accounts.wallet.add(this.account);
-          console.log('Successfully created account:', this.account.address);
-        } catch (error) {
-          console.error('Error creating account from private key:', error.message);
-          console.error('Your private key:', this.privateKey ? 
-            `${this.privateKey.substring(0, 6)}...${this.privateKey.substring(this.privateKey.length - 4)}` : 
-            'Not provided');
-          throw new Error(`Invalid private key format: ${error.message}`);
+      // For non-Ganache networks, initialize account from private key
+      if (!this.isGanache) {
+        if (this.privateKey) {
+          try {
+            // Validate and format the private key
+            const formattedKey = Web3BlockchainService.validatePrivateKey(this.privateKey);
+              
+            console.log('Attempting to create account with private key (first 4 chars):', formattedKey.substring(0, 6) + '...');
+            this.account = this.web3.eth.accounts.privateKeyToAccount(formattedKey);
+            this.web3.eth.accounts.wallet.add(this.account);
+            console.log('Successfully created account:', this.account.address);
+          } catch (error) {
+            console.error('Error creating account from private key:', error.message);
+            console.error('Your private key:', this.privateKey ? 
+              `${this.privateKey.substring(0, 6)}...${this.privateKey.substring(this.privateKey.length - 4)}` : 
+              'Not provided');
+            throw new Error(`Invalid private key format: ${error.message}`);
+          }
+        } else {
+          console.warn('No private key provided. Initializing in read-only mode.');
+          this.readOnlyMode = true;
         }
       } else {
-        console.warn('No private key provided. Initializing in read-only mode.');
-        this.readOnlyMode = true;
+        // For Ganache, we'll initialize the account when needed
+        console.log('Ganache account will be initialized when needed');
       }
       
       console.log('Web3BlockchainService initialized successfully');
@@ -148,6 +182,7 @@ class Web3BlockchainService {
       console.log('Using REAL blockchain mode - all transactions will be sent to the blockchain');
     } catch (error) {
       console.error('Error initializing Web3BlockchainService:', error);
+      
       // Check if error is related to private key
       if (error.message && error.message.includes('Private Key')) {
         console.warn('WARNING: Invalid private key format. Initializing in read-only mode.');
@@ -184,6 +219,41 @@ class Web3BlockchainService {
   }
   
   /**
+   * Initialize Ganache account (called when needed)
+   * @returns {Promise<Object>} The account object
+   */
+  async initGanacheAccount() {
+    if (!this.isGanache) {
+      return this.account;
+    }
+    
+    try {
+      // Get accounts from Ganache
+      const accounts = await this.web3.eth.getAccounts();
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts available in Ganache');
+      }
+      
+      // Use the first account
+      const firstAccount = accounts[0];
+      console.log('Using Ganache account:', firstAccount);
+      
+      // Check balance
+      const balance = await this.web3.eth.getBalance(firstAccount);
+      const balanceInEth = this.web3.utils.fromWei(balance, 'ether');
+      console.log(`Account balance: ${balanceInEth} ETH`);
+      
+      // Set the account
+      this.account = { address: firstAccount };
+      
+      return this.account;
+    } catch (error) {
+      console.error('Error initializing Ganache account:', error);
+      throw error;
+    }
+  }
+  
+  /**
    * Record a sync approval on the blockchain
    * 
    * @param {Object} approvalData - Data for the approval
@@ -208,6 +278,11 @@ class Web3BlockchainService {
             solution: 'Please provide a valid private key in the .env file. The private key should be a 64-character hexadecimal string, with or without the 0x prefix.'
           }
         };
+      }
+      
+      // For Ganache, make sure we have an account
+      if (this.isGanache && !this.account) {
+        await this.initGanacheAccount();
       }
       
       // Validate required blockchain connection parameters
@@ -273,6 +348,19 @@ class Web3BlockchainService {
       if (error.message && error.message.includes('insufficient funds')) {
         console.error('ACCOUNT HAS NO FUNDS! You need ETH in your account to pay for gas fees.');
         
+        // For Ganache, try to use a different account
+        if (this.isGanache) {
+          try {
+            console.log('Trying to use another Ganache account...');
+            await this.initGanacheAccount();
+            
+            // Try the transaction again with the new account
+            return this.recordSyncApproval(approvalData);
+          } catch (retryError) {
+            console.error('Failed to retry with Ganache account:', retryError);
+          }
+        }
+        
         try {
           // Get account balance
           const balance = await this.web3.eth.getBalance(this.account.address);
@@ -334,7 +422,13 @@ class Web3BlockchainService {
     try {
       // Check if we're in mock mode
       if (this.mockMode) {
+        console.warn('WARNING: Using mock mode for deactivateApproval. This will NOT record data on the real blockchain.');
         return this._mockDeactivateApproval(approvalId);
+      }
+      
+      // For Ganache, make sure we have an account
+      if (this.isGanache && !this.account) {
+        await this.initGanacheAccount();
       }
       
       console.log('Deactivating approval on blockchain:', approvalId);
@@ -365,6 +459,8 @@ class Web3BlockchainService {
         gas: gasWithBuffer
       });
       
+      console.log('REAL blockchain transaction successful:', receipt.transactionHash);
+      
       return {
         success: true,
         transactionHash: receipt.transactionHash,
@@ -372,17 +468,17 @@ class Web3BlockchainService {
         approvalId
       };
     } catch (error) {
-      console.error('Deactivate approval error:', error);
+      console.error('REAL blockchain deactivate approval error:', error);
       
-      // If there's an error with the blockchain, fall back to mock mode
-      if (!this.mockMode) {
-        console.log('Falling back to mock mode for this transaction');
-        return this._mockDeactivateApproval(approvalId);
-      }
-      
+      // Do not fall back to mock mode - we want real data only
       return {
         success: false,
-        error: error.message
+        error: `Failed to deactivate approval on blockchain: ${error.message}`,
+        details: {
+          rpcUrl: this.rpcUrl,
+          contractAddress: this.contractAddress,
+          approvalId: approvalId
+        }
       };
     }
   }
@@ -417,6 +513,9 @@ class Web3BlockchainService {
       
       console.log('REAL blockchain data retrieved successfully for approval:', approvalId);
       
+      // Log the raw result for debugging
+      console.log('Raw blockchain result:', JSON.stringify(result, null, 2));
+      
       // Try to find transaction hash and block number for this approval
       let transactionHash = null;
       let blockNumber = null;
@@ -433,43 +532,45 @@ class Web3BlockchainService {
         if (events && events.length > 0) {
           transactionHash = events[0].transactionHash;
           blockNumber = events[0].blockNumber;
+          console.log(`Found transaction details: hash=${transactionHash}, block=${blockNumber}`);
+        } else {
+          console.log('No events found for this approval ID');
         }
       } catch (eventError) {
         console.warn('Could not retrieve transaction details for approval:', eventError);
       }
       
       // Format the result
+      const formattedData = {
+        requestId: result[0],
+        requesterId: result[1],
+        ownerId: result[2],
+        requestType: result[3],
+        licenceKey: result[4],
+        timestamp: parseInt(result[5]),
+        isActive: result[6],
+        transactionHash: transactionHash,
+        blockNumber: blockNumber
+      };
+      
+      console.log('Formatted blockchain data:', JSON.stringify(formattedData, null, 2));
+      
       return {
         success: true,
-        data: {
-          requestId: result[0],
-          requesterId: result[1],
-          ownerId: result[2],
-          requestType: result[3],
-          licenceKey: result[4],
-          timestamp: parseInt(result[5]),
-          isActive: result[6],
-          transactionHash: transactionHash,
-          blockNumber: blockNumber
-        }
+        data: formattedData
       };
     } catch (error) {
       console.error('REAL blockchain get approval error:', error);
       
-      // Only fall back to mock mode if explicitly allowed
-      if (process.env.ALLOW_MOCK_FALLBACK === 'true') {
-        console.warn('WARNING: Falling back to mock mode due to blockchain error. This will NOT retrieve real data from the blockchain.');
-        return this._mockGetApproval(approvalId);
-      }
-      
-      // Otherwise, return the error
+      // Do not fall back to mock mode - we want real data only
       return {
         success: false,
         error: `Failed to get approval from blockchain: ${error.message}`,
         details: {
           rpcUrl: this.rpcUrl,
           contractAddress: this.contractAddress,
-          approvalId: approvalId
+          approvalId: approvalId,
+          solution: 'Ensure your blockchain connection is properly configured and the contract is deployed'
         }
       };
     }
@@ -484,25 +585,22 @@ class Web3BlockchainService {
     try {
       // Check if we're in mock mode
       if (this.mockMode) {
+        console.warn('WARNING: Using mock mode for getTotalApprovals. This will NOT retrieve real data from the blockchain.');
         return this._mockGetTotalApprovals();
       }
       
-      console.log('Getting total approvals from blockchain');
+      console.log('Getting REAL total approvals from blockchain');
       
       // Call contract method
       const result = await this.contract.methods.getTotalApprovals().call();
+      console.log('REAL blockchain returned total approvals:', result);
       
       return parseInt(result);
     } catch (error) {
-      console.error('Get total approvals error:', error);
+      console.error('REAL blockchain get total approvals error:', error);
       
-      // If there's an error with the blockchain, fall back to mock mode
-      if (!this.mockMode) {
-        console.log('Falling back to mock mode for this query');
-        return this._mockGetTotalApprovals();
-      }
-      
-      throw error;
+      // Do not fall back to mock mode - we want real data only
+      throw new Error(`Failed to get total approvals from blockchain: ${error.message}`);
     }
   }
   
@@ -516,25 +614,22 @@ class Web3BlockchainService {
     try {
       // Check if we're in mock mode
       if (this.mockMode) {
+        console.warn('WARNING: Using mock mode for getApprovalIdByIndex. This will NOT retrieve real data from the blockchain.');
         return this._mockGetApprovalIdByIndex(index);
       }
       
-      console.log('Getting approval ID by index from blockchain:', index);
+      console.log('Getting REAL approval ID by index from blockchain:', index);
       
       // Call contract method
       const result = await this.contract.methods.getApprovalIdByIndex(index).call();
+      console.log(`REAL blockchain returned approval ID at index ${index}:`, result);
       
       return result;
     } catch (error) {
-      console.error('Get approval ID by index error:', error);
+      console.error('REAL blockchain get approval ID by index error:', error);
       
-      // If there's an error with the blockchain, fall back to mock mode
-      if (!this.mockMode) {
-        console.log('Falling back to mock mode for this query');
-        return this._mockGetApprovalIdByIndex(index);
-      }
-      
-      throw error;
+      // Do not fall back to mock mode - we want real data only
+      throw new Error(`Failed to get approval ID by index from blockchain: ${error.message}`);
     }
   }
   

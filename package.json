@@ -10,9 +10,11 @@
     "test": "node src/test-web3.js",
     "blockchain": "node src/index.js",
     "ganache": "node scripts/start-ganache.js",
+    "setup-ganache": "node scripts/ganache-setup.js",
     "setup-local": "node scripts/setup-local-env.js",
     "deploy:local": "node scripts/deploy-web3.js",
-    "deploy:sepolia": "node scripts/deploy-web3.js"
+    "deploy:sepolia": "node scripts/deploy-web3.js",
+    "free-mode": "npm run setup-ganache && npm run dev"
   },
   "keywords": [
     "blockchain",
