@@ -3,7 +3,8 @@ import {
   recordSyncApprovalOnBlockchain, 
   getBlockchainApproval, 
   getBlockchainTransaction,
-  getApprovalTransactions
+  getApprovalTransactions,
+  getRecentBlockchainTransactions
 } from '../controllers/blockchainController.js';
 import { apiKeyAuth, generalAuth } from '../middlewares/auth.js';
 import Web3BlockchainService from '../services/web3BlockchainService.js';
@@ -107,6 +108,16 @@ router.get(
         });
       }
       
+      // Check if blockchain is enabled
+      if (process.env.BLOCKCHAIN_ENABLED === 'false') {
+        return res.status(400).json({
+          success: false,
+        message: 'Blockchain integration is disabled',
+        error: 'Blockchain functionality is explicitly disabled in this environment. Set BLOCKCHAIN_ENABLED to true or remove it from your .env file to enable.'
+        });
+      }
+      
+      // Get the approval details
       const result = await getBlockchainApproval(approvalId);
       
       if (result.success) {
@@ -116,10 +127,23 @@ router.get(
           data: result.data
         });
       } else {
+        // Check if this is an ABI error
+        const isAbiError = result.error && result.error.includes('ABI');
+        
+        if (isAbiError) {
+          return res.status(400).json({
+            success: false,
+            message: 'ABI compatibility issue',
+            error: result.error,
+            solution: 'The contract ABI may not match the deployed contract. Please ensure your contract ABI is up to date.'
+          });
+        }
+        
+        // For non-ABI errors, return the standard error response
         return res.status(404).json({
           success: false,
           message: 'Approval not found or blockchain integration disabled',
-          error: result.message || 'Not found'
+          error: result.error || 'Not found'
         });
       }
     } catch (error) {
@@ -134,6 +158,68 @@ router.get(
 );
 
 /**
+ * @route GET /api/blockchain/transactions
+ * @desc Get recent transactions from the blockchain
+ * @access Public
+ */
+router.get('/transactions', async (req, res) => {
+  try {
+    // Get limit from query params, default to 10
+    const limit = parseInt(req.query.limit) || 10;
+    
+    // Get fromBlock from query params if provided
+    const fromBlock = req.query.from_block ? parseInt(req.query.from_block) : null;
+    
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // Check if blockchain is enabled - default to enabled if not explicitly disabled
+    if (process.env.BLOCKCHAIN_ENABLED === 'false') {
+      return res.status(400).json({
+        success: false,
+        message: 'Blockchain integration is disabled',
+        error: 'Blockchain functionality is explicitly disabled in this environment'
+      });
+    }
+    
+    // Get recent transactions from the blockchain
+    try {
+      console.log(`Fetching up to ${limit} recent transactions from the blockchain`);
+      const result = await getRecentBlockchainTransactions(limit, fromBlock);
+      
+      if (result.success) {
+        return res.status(200).json({
+          success: true,
+          message: 'Recent transactions retrieved successfully',
+          data: result.data
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to retrieve recent transactions',
+          error: result.error
+        });
+      }
+    } catch (blockchainError) {
+      console.error('Error retrieving blockchain transactions:', blockchainError);
+      return res.status(400).json({
+        success: false,
+        message: 'Error retrieving blockchain transactions',
+        error: blockchainError.message,
+        stack: process.env.NODE_ENV === 'development' ? blockchainError.stack : undefined
+      });
+    }
+  } catch (error) {
+    console.error('Blockchain get transactions route error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
  * @route GET /api/blockchain/transaction/:transactionHash
  * @desc Get transaction details from blockchain by transaction hash
  * @access Public
@@ -144,12 +230,24 @@ router.get(
     try {
       const { transactionHash } = req.params;
       
-      // Validate transaction hash format
+      // Initialize blockchain service
+      const blockchainService = new Web3BlockchainService();
+      
+      // Check if blockchain is enabled
+      if (process.env.BLOCKCHAIN_ENABLED === 'false') {
+        return res.status(400).json({
+          success: false,
+        message: 'Blockchain integration is disabled',
+        error: 'Blockchain functionality is explicitly disabled in this environment. Set BLOCKCHAIN_ENABLED to true or remove it from your .env file to enable.'
+        });
+      }
+      
+      // Validate transaction hash format for real blockchain requests
       if (!transactionHash || !transactionHash.startsWith('0x') || transactionHash.length !== 66) {
         return res.status(400).json({
           success: false,
           message: 'Invalid transaction hash format',
-          error: 'Validation Error'
+          error: 'Transaction hash must be a 66-character hexadecimal string starting with 0x'
         });
       }
       
@@ -200,6 +298,15 @@ router.get(
         });
       }
       
+      // Check if blockchain is enabled
+      if (process.env.BLOCKCHAIN_ENABLED === 'false') {
+        return res.status(400).json({
+          success: false,
+        message: 'Blockchain integration is disabled',
+        error: 'Blockchain functionality is explicitly disabled in this environment. Set BLOCKCHAIN_ENABLED to true or remove it from your .env file to enable.'
+        });
+      }
+      
       // Get all transactions for this approval
       const result = await getApprovalTransactions(approvalId);
       
@@ -210,6 +317,19 @@ router.get(
           data: result.data
         });
       } else {
+        // Check if this is an ABI error
+        const isAbiError = result.error && result.error.includes('ABI');
+        
+        if (isAbiError) {
+          return res.status(400).json({
+            success: false,
+            message: 'ABI compatibility issue',
+            error: result.error,
+            solution: 'The contract ABI may not match the deployed contract. Please ensure your contract ABI is up to date.'
+          });
+        }
+        
+        // For non-ABI errors, return the standard error response
         return res.status(404).json({
           success: false,
           message: 'Approval not found or blockchain integration disabled',
@@ -265,7 +385,7 @@ router.get('/search-approvals', apiKeyAuth, async (req, res) => {
     }
     
     // Check if blockchain integration is enabled
-    if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
+    if (process.env.BLOCKCHAIN_ENABLED === 'false') {
       return res.status(200).json({
         success: false,
         message: 'Blockchain integration is disabled',
@@ -500,7 +620,7 @@ router.get('/all-approvals', apiKeyAuth, async (req, res) => {
     }
     
     // Check if blockchain integration is enabled
-    if (process.env.BLOCKCHAIN_ENABLED !== 'true') {
+    if (process.env.BLOCKCHAIN_ENABLED === 'false') {
       return res.status(200).json({
         success: false,
         message: 'Blockchain integration is disabled',

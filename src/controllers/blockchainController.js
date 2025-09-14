@@ -1,6 +1,22 @@
 import Web3BlockchainService from '../services/web3BlockchainService.js';
 
 /**
+ * Helper function to safely convert BigInt values to regular numbers
+ * @param {any} value - The value to convert
+ * @returns {number} The converted number
+ */
+const safeNumberConversion = (value) => {
+  if (typeof value === 'bigint') {
+    return Number(value);
+  } else if (typeof value === 'string' && value.includes('n')) {
+    return Number(value.replace('n', ''));
+  } else if (value !== null && value !== undefined) {
+    return Number(value);
+  }
+  return 0;
+};
+
+/**
  * Record a sync approval on the blockchain
  * 
  * @param {Object} syncRequest - The sync request to approve
@@ -183,6 +199,124 @@ export const getBlockchainTransaction = async (transactionHash) => {
     return {
       success: false,
       error: `Failed to get transaction from blockchain: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get recent transactions from the blockchain
+ * 
+ * @param {number} limit - Maximum number of transactions to return
+ * @param {number} fromBlock - Starting block number (optional)
+ * @returns {Promise<Object>} List of recent transactions
+ */
+export const getRecentBlockchainTransactions = async (limit = 10, fromBlock = null) => {
+  try {
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // Get Web3 instance
+    const web3 = blockchainService.web3;
+    
+    // Get current block number
+    const currentBlockNumber = await web3.eth.getBlockNumber();
+    console.log('Current block number:', currentBlockNumber);
+    
+    // Convert to regular numbers to avoid BigInt issues
+    const currentBlockNumberInt = Number(currentBlockNumber);
+    
+    // Determine starting block number
+    const startBlockNumber = fromBlock || Math.max(0, currentBlockNumberInt - 100); // Look at last 100 blocks by default
+    console.log('Starting from block:', startBlockNumber);
+    
+    // Array to store transactions
+    const transactions = [];
+    
+    // Track the number of blocks we've processed
+    let blocksProcessed = 0;
+    const maxBlocksToProcess = 100; // Limit to prevent excessive processing
+    
+    // Process blocks in reverse order (newest first)
+    for (let blockNumber = currentBlockNumberInt; 
+         blockNumber >= startBlockNumber && transactions.length < limit && blocksProcessed < maxBlocksToProcess; 
+         blockNumber--) {
+      
+      try {
+        console.log(`Processing block ${blockNumber}`);
+        blocksProcessed++;
+        
+        // Get block with transactions
+        const block = await web3.eth.getBlock(blockNumber, true);
+        
+        if (!block) {
+          console.log(`Block ${blockNumber} not found`);
+          continue;
+        }
+        
+        // Check if there are transactions in this block
+        if (block.transactions && block.transactions.length > 0) {
+          console.log(`Found ${block.transactions.length} transactions in block ${blockNumber}`);
+          
+          // Process each transaction in the block
+          for (const tx of block.transactions) {
+            // Check if this transaction is to our contract
+            if (tx.to && tx.to.toLowerCase() === blockchainService.contractAddress?.toLowerCase()) {
+              console.log(`Found transaction to our contract: ${tx.hash}`);
+              
+              try {
+                // Get transaction receipt
+                const receipt = await web3.eth.getTransactionReceipt(tx.hash);
+                
+                // Format transaction data
+                const txData = {
+                  transactionHash: tx.hash,
+                  blockNumber: safeNumberConversion(tx.blockNumber),
+                  from: tx.from,
+                  to: tx.to,
+                  gasUsed: receipt ? safeNumberConversion(receipt.gasUsed) : null,
+                  status: receipt ? receipt.status : null,
+                  timestamp: safeNumberConversion(block.timestamp),
+                  value: web3.utils.fromWei(tx.value, 'ether'),
+                  confirmations: safeNumberConversion(currentBlockNumberInt - safeNumberConversion(tx.blockNumber))
+                };
+                
+                // Add to transactions array
+                transactions.push(txData);
+                
+                // Check if we've reached the limit
+                if (transactions.length >= limit) {
+                  break;
+                }
+              } catch (txError) {
+                console.error(`Error processing transaction ${tx.hash}:`, txError);
+                // Continue to next transaction
+              }
+            }
+          }
+        }
+      } catch (blockError) {
+        console.error(`Error processing block ${blockNumber}:`, blockError);
+        // Continue to next block
+      }
+    }
+    
+    console.log(`Processed ${blocksProcessed} blocks, found ${transactions.length} transactions`);
+    
+    return {
+      success: true,
+      data: {
+        transactions,
+        total: transactions.length,
+        from_block: startBlockNumber,
+        to_block: currentBlockNumberInt,
+        blocks_processed: blocksProcessed
+      }
+    };
+  } catch (error) {
+    console.error('Error getting recent transactions from blockchain:', error);
+    return {
+      success: false,
+      error: `Failed to get recent transactions from blockchain: ${error.message}`
     };
   }
 };
