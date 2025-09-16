@@ -17,6 +17,56 @@ const safeNumberConversion = (value) => {
 };
 
 /**
+ * Helper function to decode transaction input data
+ * @param {string} inputData - The input data from transaction
+ * @param {Object} web3 - Web3 instance
+ * @param {Object} contract - Contract instance
+ * @returns {Object|null} Decoded data or null if decoding fails
+ */
+const decodeTransactionInput = (inputData, web3, contract) => {
+  try {
+    // Skip if input data is too short
+    if (!inputData || inputData === '0x' || inputData.length < 10) {
+      return null;
+    }
+    
+    // Get the method signature (first 4 bytes after 0x)
+    const methodSignature = inputData.slice(0, 10);
+    
+    // Try to find the matching method in the ABI
+    const abi = contract._jsonInterface;
+    const method = abi.find(m => 
+      m.type === 'function' && 
+      web3.utils.sha3(m.name + '(' + m.inputs.map(i => i.type).join(',') + ')').slice(0, 10) === methodSignature
+    );
+    
+    if (!method) {
+      return null;
+    }
+    
+    // Decode the parameters
+    const paramData = inputData.slice(10);
+    const params = web3.eth.abi.decodeParameters(method.inputs, paramData);
+    
+    // Format the result
+    const result = {
+      method: method.name,
+      params: {}
+    };
+    
+    // Add each parameter to the result
+    method.inputs.forEach((input, index) => {
+      result.params[input.name] = params[index];
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error decoding transaction input:', error);
+    return null;
+  }
+};
+
+/**
  * Record a sync approval on the blockchain
  * 
  * @param {Object} syncRequest - The sync request to approve
@@ -322,11 +372,106 @@ export const getRecentBlockchainTransactions = async (limit = 10, fromBlock = nu
 };
 
 /**
- * Get all transactions related to a specific approval ID
+ * Get transaction data from a transaction hash
  * 
- * @param {string} approvalId - The approval ID to look up transactions for
- * @returns {Promise<Object>} All transactions related to the approval
+ * @param {string} transactionHash - The transaction hash to retrieve data for
+ * @returns {Promise<Object>} Transaction data including decoded input parameters
  */
+export const getTransactionData = async (transactionHash) => {
+  try {
+    // Initialize blockchain service
+    const blockchainService = new Web3BlockchainService();
+    
+    // Get Web3 instance
+    const web3 = blockchainService.web3;
+    const contract = blockchainService.contract;
+    
+    // If in mock mode (but not Ganache), return mock data
+    if (blockchainService.mockMode && !blockchainService.isGanache) {
+      console.log('Using mock mode for transaction data lookup:', transactionHash);
+      
+      return {
+        success: true,
+        data: {
+          transactionHash: transactionHash,
+          blockNumber: 1757836096758,
+          from: '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1',
+          to: blockchainService.contractAddress || '0x0290FB167208Af455bB137780163b7B7a9a10C16',
+          gasUsed: '500000',
+          status: true,
+          timestamp: Math.floor(Date.now() / 1000) - 3600,
+          value: '0',
+          decodedData: {
+            method: 'recordApproval',
+            params: {
+              approvalId: 'cmf993dla0001jlhcxw1fbzvq',
+              requestId: 'cmf993dla0001jlhcxw1fbzvq',
+              requesterId: 'cmey1zakx0006b77kjvosu9i6',
+              ownerId: 'cmdr1562m0005i6aq069lv8fi',
+              requestType: 'gcp',
+              licenceKey: '6285561'
+            }
+          }
+        }
+      };
+    }
+    
+    // Get transaction
+    const tx = await web3.eth.getTransaction(transactionHash);
+    if (!tx) {
+      return {
+        success: false,
+        message: 'Transaction not found'
+      };
+    }
+    
+    // Get transaction receipt
+    const receipt = await web3.eth.getTransactionReceipt(transactionHash);
+    
+    // Get block info to get timestamp
+    const block = await web3.eth.getBlock(tx.blockNumber);
+    
+    // Decode input data if possible
+    const decodedData = decodeTransactionInput(tx.input, web3, contract);
+    
+    // Format the response
+    const response = {
+      transactionHash: tx.hash,
+      blockNumber: tx.blockNumber,
+      from: tx.from,
+      to: tx.to,
+      gasUsed: receipt ? receipt.gasUsed : null,
+      status: receipt ? receipt.status : null,
+      timestamp: block ? block.timestamp : null,
+      value: web3.utils.fromWei(tx.value, 'ether'),
+      confirmations: tx.blockNumber ? await web3.eth.getBlockNumber() - tx.blockNumber : 0,
+      decodedData: decodedData
+    };
+    
+    // Try to decode logs if available
+    if (receipt && receipt.logs && receipt.logs.length > 0) {
+      try {
+        // This would require the ABI to properly decode events
+        // For now, we'll just include the raw logs
+        response.logs = receipt.logs;
+      } catch (error) {
+        console.warn('Could not decode logs:', error.message);
+      }
+    }
+    
+    return {
+      success: true,
+      data: response
+    };
+  } catch (error) {
+    console.error('Error getting transaction data from blockchain:', error);
+    return {
+      success: false,
+      error: `Failed to get transaction data from blockchain: ${error.message}`
+    };
+  }
+};
+
 export const getApprovalTransactions = async (approvalId) => {
   try {
     // Initialize blockchain service

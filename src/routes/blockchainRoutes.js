@@ -4,7 +4,8 @@ import {
   getBlockchainApproval, 
   getBlockchainTransaction,
   getApprovalTransactions,
-  getRecentBlockchainTransactions
+  getRecentBlockchainTransactions,
+  getTransactionData
 } from '../controllers/blockchainController.js';
 import { apiKeyAuth, generalAuth } from '../middlewares/auth.js';
 import Web3BlockchainService from '../services/web3BlockchainService.js';
@@ -751,6 +752,65 @@ router.get('/all-approvals', apiKeyAuth, async (req, res) => {
     });
   }
 });
+
+/**
+ * @route GET /api/blockchain/transaction-data/:transactionHash
+ * @desc Get transaction data including decoded input parameters
+ * @access Public
+ */
+router.get(
+  '/transaction-data/:transactionHash',
+  async (req, res) => {
+    try {
+      const { transactionHash } = req.params;
+      
+      // Initialize blockchain service
+      const blockchainService = new Web3BlockchainService();
+      
+      // Check if blockchain is enabled
+      if (process.env.BLOCKCHAIN_ENABLED === 'false') {
+        return res.status(400).json({
+          success: false,
+          message: 'Blockchain integration is disabled',
+          error: 'Blockchain functionality is explicitly disabled in this environment. Set BLOCKCHAIN_ENABLED to true or remove it from your .env file to enable.'
+        });
+      }
+      
+      // Validate transaction hash format for real blockchain requests
+      if (!transactionHash || !transactionHash.startsWith('0x') || transactionHash.length !== 66) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid transaction hash format',
+          error: 'Transaction hash must be a 66-character hexadecimal string starting with 0x'
+        });
+      }
+      
+      // Get transaction details including decoded input data
+      const result = await getTransactionData(transactionHash);
+      
+      if (result.success) {
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction data retrieved successfully',
+          data: result.data
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'Transaction not found or blockchain integration disabled',
+          error: result.error || 'Not found'
+        });
+      }
+    } catch (error) {
+      console.error('Blockchain get transaction data route error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+);
 
 /**
  * @route GET /api/blockchain/status
