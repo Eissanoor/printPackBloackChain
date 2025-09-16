@@ -1,4 +1,4 @@
-import ganache from 'ganache';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,75 +6,46 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuration for Ganache
-const options = {
-  // Generate 10 accounts with 100 ETH each
-  wallet: {
-    totalAccounts: 10,
-    defaultBalance: 100
-  },
-  // Log all requests to the console
-  logging: {
-    quiet: false
-  },
-  // Chain ID for local development
-  chain: {
-    chainId: 1337
-  },
-  // Enable mining
-  miner: {
-    blockTime: 0 // Mine immediately
-  }
-};
+// Create data directory if it doesn't exist
+const dataDir = path.join(__dirname, '..', 'ganache-data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 
-// Start Ganache server
-const server = ganache.server(options);
-const PORT = 8545;
+console.log(`Starting Ganache with persistent data in: ${dataDir}`);
 
-server.listen(PORT, async (err) => {
-  if (err) {
-    console.error(`Error starting Ganache: ${err}`);
-    process.exit(1);
-  }
-  
-  console.log(`Ganache running at http://localhost:${PORT}`);
-  
-  // Get the generated accounts
-  const provider = server.provider;
-  const accounts = await provider.request({ method: "eth_accounts", params: [] });
-  
-  // Get the private key for the first account
-  const wallet = provider.getInitialAccounts();
-  const firstAccount = Object.keys(wallet)[0];
-  const privateKey = wallet[firstAccount].secretKey.substring(2); // Remove '0x' prefix
-  
-  console.log(`\nAvailable Accounts:`);
-  accounts.forEach((account, i) => {
-    console.log(`(${i}) ${account} (100 ETH)`);
-  });
-  
-  console.log(`\nPrivate Key for first account:`);
-  console.log(privateKey);
-  
-  // Save account info to a file for easy access
-  const accountsInfo = {
-    accounts,
-    firstAccount: accounts[0],
-    privateKey
-  };
-  
-  fs.writeFileSync(
-    path.join(__dirname, '../ganache-accounts.json'),
-    JSON.stringify(accountsInfo, null, 2)
-  );
-  
-  console.log(`\nAccount info saved to ganache-accounts.json`);
-  console.log(`\nTo use this account for deployment:`);
-  console.log(`1. Add to your .env file:`);
-  console.log(`   BLOCKCHAIN_RPC_URL=http://localhost:8545`);
-  console.log(`   BLOCKCHAIN_PRIVATE_KEY=${privateKey}`);
-  console.log(`\n2. Run the deployment script:`);
-  console.log(`   npm run deploy:local`);
-  
-  console.log(`\nPress Ctrl+C to stop the Ganache server`);
+// Determine the correct command for the OS
+const isWindows = process.platform === 'win32';
+const command = isWindows ? 'npx.cmd' : 'npx';
+
+// Start Ganache with persistence
+const ganache = spawn(command, [
+  'ganache',
+  '--db', dataDir,
+  '--deterministic',  // Use deterministic addresses
+  '--networkId', '1337',  // Use consistent network ID
+  '--chain.chainId', '1337',  // Use consistent chain ID
+  '--wallet.totalAccounts', '10',  // Create 10 accounts
+  '--wallet.defaultBalance', '1000',  // Each with 1000 ETH
+  '--miner.blockTime', '0',  // Instant mining (0) or set to a number of seconds
+  '--server.host', '0.0.0.0',  // Listen on all interfaces
+  '--server.port', '8545'  // Default port
+], {
+  stdio: 'inherit',
+  shell: isWindows // Use shell on Windows
+});
+
+ganache.on('close', (code) => {
+  console.log(`Ganache exited with code ${code}`);
+});
+
+// Handle process termination
+process.on('SIGINT', () => {
+  ganache.kill();
+  process.exit();
+});
+
+process.on('SIGTERM', () => {
+  ganache.kill();
+  process.exit();
 });

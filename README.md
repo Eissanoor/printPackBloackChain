@@ -1,26 +1,15 @@
 # Print & Pack Blockchain Integration
 
-This project integrates the Print & Pack product sync approval system with blockchain technology to provide an immutable record of product sync approvals.
+This project integrates blockchain technology with the Print & Pack product synchronization system, allowing product sync requests and approvals to be recorded on the blockchain.
 
-## Overview
+## Setup Instructions
 
-When a product owner approves a sync request from another user, the approval is recorded on the blockchain, providing transparency and traceability for all product sync operations.
+### Prerequisites
 
-## Features
+- Node.js v16+ and npm
+- Git
 
-- Records product sync approvals on the blockchain
-- Provides transaction references for approved sync requests
-- Supports both GCP and Excel sync requests
-- Integrates with the existing Print & Pack system
-- Uses Web3.js and Ganache for simplified blockchain interaction
-
-## Prerequisites
-
-- Node.js v14+ and npm
-- For local development: No additional requirements (uses Ganache)
-- For production: Access to an Ethereum-compatible blockchain network
-
-## Setup
+### Installation
 
 1. Clone the repository:
    ```
@@ -33,247 +22,130 @@ When a product owner approves a sync request from another user, the approval is 
    npm install
    ```
 
-3. Create a `.env` file with the following variables:
+## Running the Application
+
+### Windows-Specific Instructions
+
+If you're on Windows, use these commands:
+
+#### Option 1: Step-by-Step (Recommended for Windows)
+
+1. Setup environment:
    ```
-   # Blockchain Configuration
-   BLOCKCHAIN_RPC_URL=http://localhost:8545
-   BLOCKCHAIN_PRIVATE_KEY=your-private-key-with-or-without-0x-prefix
-   CONTRACT_ADDRESS=your-deployed-contract-address
-   
-   # Database Configuration
-   DATABASE_URL="DATABASE_URL"
-   
-   # Blockchain Settings
-   BLOCKCHAIN_ENABLED=true
-   
-   # Mock Fallback Settings (optional)
-   ALLOW_MOCK_FALLBACK=false
-   ```
-   
-   > **IMPORTANT**: The private key must be a valid 64-character hexadecimal string (with or without the '0x' prefix). You can validate your private key by running:
-   > ```
-   > node scripts/validate-private-key.js YOUR_PRIVATE_KEY
-   > ```
-
-## Local Development
-
-There are three ways to run the blockchain integration:
-
-### 1. FREE MODE: Using Ganache (Recommended for Development)
-
-This method uses a local Ganache blockchain that runs on your machine. It's completely free and doesn't require any external connections or real ETH.
-
-#### Step-by-Step Instructions:
-
-1. First, set up the Ganache environment:
-   ```
-   npm run setup-ganache
-   ```
-   This creates a `.env` file with the correct Ganache settings.
-
-2. In a separate terminal, start Ganache:
-   ```
-   npx ganache --deterministic
-   ```
-   This starts a local blockchain with pre-funded accounts.
-
-3. Start your API server:
-   ```
-   npm start
+   npm run setup
    ```
 
-#### Important Notes for Ganache Mode:
-
-- Make sure `BLOCKCHAIN_NETWORK=ganache` is in your `.env` file (the setup script adds this)
-- Ganache accounts come with 1000 ETH each, so you won't need to get test ETH
-- The first account in Ganache will be used automatically for transactions
-- Keep the Ganache terminal window open while using the API
-
-#### Troubleshooting:
-
-If you see "insufficient funds" errors:
-1. Make sure Ganache is running in a separate terminal
-2. Check that your `.env` file has `BLOCKCHAIN_NETWORK=ganache`
-3. Try restarting both Ganache and your API server
-
-If you see "Do not know how to serialize a BigInt" errors:
-1. This is fixed in the latest version with a custom JSON serializer
-2. Make sure you're using the latest version of the code
-3. The API automatically converts BigInt values to strings in JSON responses
-
-### 2. Using the Mock Implementation
-
-This method simulates blockchain operations without an actual blockchain.
-
-1. Set up your `.env` file with mock mode enabled:
+2. Start Ganache (in one terminal window):
    ```
-   BLOCKCHAIN_RPC_URL=http://localhost:8545
-   BLOCKCHAIN_PRIVATE_KEY=your-private-key
-   CONTRACT_ADDRESS=your-contract-address
-   BLOCKCHAIN_ENABLED=true
-   USE_MOCK_MODE=true
+   npm run ganache-win
    ```
 
-2. Start the API server:
+3. In a new terminal, compile and deploy:
    ```
-   npm start
-   ```
-
-The mock implementation will:
-- Log all blockchain operations to the console
-- Generate mock transaction hashes
-- Return mock data for blockchain queries
-- Work without requiring any real ETH in your account
-
-### 3. Using a Public Testnet (Requires Test ETH)
-
-If you want to use a public testnet (like Sepolia), you'll need test ETH to pay for gas fees:
-
-1. Run the helper script to check your account and get instructions:
-   ```
-   node scripts/get-test-eth.js
+   npm run deploy-simple
    ```
 
-2. Follow the instructions to get test ETH from a faucet
-3. Once your account has ETH, you can use the real blockchain without mock mode
-
-
-## Production Deployment
-
-To deploy to a public testnet or mainnet:
-
-1. Update your `.env` file with the appropriate RPC URL and a funded private key:
-   ```
-   BLOCKCHAIN_RPC_URL=https://sepolia.infura.io/v3/your-infura-key
-   BLOCKCHAIN_PRIVATE_KEY=your-private-key-with-funds
-   ```
-
-2. Deploy the contract:
-   ```
-   npm run deploy:sepolia
-   ```
-
-## Integration with Print & Pack System
-
-The blockchain integration works with the existing Print & Pack system by:
-
-1. When a product owner approves a sync request, the `approveSyncRequest` controller calls the blockchain service
-2. The approval details are recorded on the blockchain using the smart contract
-3. A transaction reference is generated and included in the response and email notification
-4. Users can verify the approval on the blockchain using the transaction reference
-
-## Smart Contract
-
-The `PrintPackSyncApproval` smart contract provides the following functions:
-
-- `recordApproval`: Records a new sync approval on the blockchain
-- `deactivateApproval`: Deactivates an existing approval (e.g., if access is revoked)
-- `getApproval`: Retrieves details of a recorded approval
-
-## Running the API
-
-1. Ensure you have set up the `.env` file with valid blockchain credentials
-2. Start the API server:
-   ```
-   npm start
-   ```
-   Or for development with auto-reload:
+4. Start the application:
    ```
    npm run dev
    ```
-3. The API will be available at http://localhost:3000
 
-## API Documentation
+#### Option 2: Combined Run for Windows
 
-### Endpoints
+After setup, you can use:
+```
+npm run real-data-mode-win
+```
 
-#### Blockchain API
+### For All Operating Systems
 
-1. **Record Approval on Blockchain**
-   - `POST /api/blockchain/record-approval`
-   - Records a sync approval on the blockchain
-   - Requires API key authentication
-   - Request body:
-     ```json
-     {
-       "syncRequest": {
-         "id": "request-id",
-         "requester_id": "requester-user-id",
-         "owner_id": "owner-user-id",
-         "request_type": "gcp",
-         "licence_key": "GS1-12345-ABC"
-       },
-       "action": "approve"
-     }
-     ```
+### Option 1: One-Command Setup and Run
 
-2. **Get Approval Details**
-   - `GET /api/blockchain/approval/:approvalId`
-   - Retrieves details of a recorded approval from the blockchain
-   - Requires API key authentication
+The easiest way to get started is with our all-in-one command:
 
-3. **Check Blockchain Status**
-   - `GET /api/blockchain/status`
-   - Returns the current status of the blockchain integration
-   - Requires API key authentication
+```
+npm run all-in-one
+```
 
-#### Integration with Print & Pack System
+This command will:
+1. Create the necessary directories
+2. Create the `.env` file automatically
+3. Start Ganache with persistent storage
+4. Compile the smart contract
+5. Deploy the contract
+6. Start the application
 
-The existing Print & Pack API endpoints that now include blockchain integration:
+### Option 2: Step-by-Step Setup
 
-1. **Approve/Reject Sync Request**
-   - `POST /api/requests/requestAction`
-   - Approves or rejects a sync request and records on blockchain if approved
-   - Request body:
-     ```json
-     {
-       "request_id": "request-id",
-       "action": "approve",
-       "message": "Optional message"
-     }
-     ```
+If you prefer to run each step individually:
 
-For detailed examples and more information, see the [POSTMAN_EXAMPLES.md](./POSTMAN_EXAMPLES.md) file.
+#### 1. Setup Environment
 
-## Testing
+This creates the `.env` file and necessary directories:
 
-### Testing with Mock Implementation
+```
+npm run setup
+```
 
-1. Run the test script with the mock implementation:
-   ```
-   npm test
-   ```
-   This will use the mock blockchain service and won't require an actual blockchain connection.
+#### 2. Start the Blockchain with Persistent Data
 
-2. Test the API using Postman with the examples provided in POSTMAN_EXAMPLES.md
+```
+npm run ganache
+```
 
-### Testing with Real Blockchain (Optional)
+This starts a local blockchain at http://localhost:8545 with data stored in the `ganache-data` directory. The data will persist between restarts.
 
-If you want to test with an actual blockchain:
+#### 3. Compile and Deploy the Smart Contract
 
-1. Start the local Ganache blockchain:
-   ```
-   npm run ganache
-   ```
+```
+npm run deploy-simple
+```
 
-2. Deploy the contract:
-   ```
-   npm run deploy:local
-   ```
+#### 4. Run the Application
 
-3. Update the Web3BlockchainService.js file to use the real Web3 implementation
+```
+npm run dev
+```
 
-4. Run the test script:
-   ```
-   npm test
-   ```
+### Option 3: Combined Run (after setup)
 
-## Security Considerations
+After initial setup, you can use:
 
-- The private key in the `.env` file should be kept secure and never committed to version control
-- Consider using a dedicated account with limited funds for blockchain transactions
-- Implement proper access controls to prevent unauthorized use of the blockchain integration
+```
+npm run real-data-mode
+```
 
-## License
+This starts Ganache, deploys the contract, and runs the application.
 
-[Specify License]
+## How It Works
+
+1. **Persistent Blockchain Data**: The blockchain data is stored in the `ganache-data` directory, ensuring that your data persists between Ganache restarts.
+
+2. **Smart Contract**: The `PrintPackSync` smart contract manages product synchronization requests and approvals on the blockchain.
+
+3. **Integration**: The application integrates with the blockchain to record all sync requests, approvals, and product data.
+
+## Database Schema
+
+The system uses both a traditional database (SQL Server) and blockchain storage:
+
+- **Traditional Database**: Stores user data, product details, and sync requests
+- **Blockchain**: Records immutable proof of sync requests, approvals, and product data
+
+## Troubleshooting
+
+### Blockchain Data Reset
+
+If your blockchain data is being reset between restarts:
+
+1. Make sure you're using the `npm run ganache` command to start Ganache
+2. Check that the `ganache-data` directory exists and has write permissions
+3. Verify that you're not using a different command to start Ganache that doesn't include the `--db` option
+
+### Contract Deployment Issues
+
+If contract deployment fails:
+
+1. Make sure Ganache is running (`npm run ganache`)
+2. Check that the contract compiles successfully (`npm run compile`)
+3. Verify the Web3 provider URL in your `.env` file
